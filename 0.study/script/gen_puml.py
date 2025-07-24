@@ -16,6 +16,9 @@ workpath = str(Path(__file__).resolve().parent.parent.parent)
 logging.debug(f"workpath: {workpath}")
 
 
+g_plantuml_jar=workpath +'/0.study/assets/plantuml-1.2025.4.jar'
+
+
 def gen_puml(input_files, output_file):
     """
     Generate PlantUML file from C++ header file.
@@ -30,6 +33,10 @@ def gen_puml(input_files, output_file):
 
     logging.debug(f"cmd: {cmd}")
     ret = os.system(cmd)
+    
+    cmd = 'java -jar '+g_plantuml_jar+' -tsvg -o '+str(Path(output_file).resolve().parent)+'  ' +output_file
+    logging.debug(f"cmd: {cmd}")
+    ret |= os.system(cmd)
 
     if ret != 0:
         logging.error(f"Command failed with return code {ret}.")
@@ -67,12 +74,32 @@ def handle_common():
     gen_puml(input_files, output_file)
 
 
+def handle_metrics():
+    """
+    Handle the metrics case.
+    """
+    metrics_path = os.path.join(workpath, "cartographer", "metrics")
+    metrics_out_path = os.path.join(
+        workpath, "0.study", "cartographer", "assets", "puml", "metrics"
+    )
+    os.makedirs(metrics_out_path, exist_ok=True)
+    
+    # gen metrics.puml
+    input_files = glob.glob(os.path.join(metrics_path, "*.h"))
+    input_files += glob.glob(os.path.join(workpath, "cartographer", "cloud", "metrics","prometheus", "family_factory.*"))
+    output_file = metrics_out_path +"/metrics.puml"
+    gen_puml(input_files, output_file)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="gen puml from cpp header file")
     parser.add_argument("--common", help="", type=bool, default=False)
+    parser.add_argument("--metrics", help="", type=bool, default=False)
 
     if parser.parse_args().common:
         handle_common()
+    elif parser.parse_args().metrics:
+        handle_metrics()
 
 
 # hpp2plantuml -i  ../../cartographer/common/internal/blocking_queue.h -o common.puml

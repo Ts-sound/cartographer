@@ -1,15 +1,9 @@
 # common
 
-```mermaid
+[toc]
 
-classDiagram
-class  BlockingQueue~T~{
- 
-}
+一些通用函数处理库；
 
-
-```	
- 	
 ## BlockingQueue
 
 ![](./assets/puml/common/blocking_queue.puml)

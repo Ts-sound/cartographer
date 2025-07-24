@@ -1,0 +1,82 @@
+@startuml
+
+
+/' Objects '/
+
+namespace cartographer {
+	namespace metrics {
+		abstract class Counter {
+		}
+
+
+        abstract class Family<Counter> {
+		}
+
+		abstract class FamilyFactory {
+		}
+
+		class NullFamily <Counter> {
+		}
+	}
+
+	namespace cloud {
+		namespace metrics {
+			namespace prometheus {
+				class Counter {
+				}
+
+				class CounterFamily {
+				}
+
+				class FamilyFactory {
+				}
+			}
+		}
+	}
+}
+
+
+
+
+
+/' Inheritance relationships '/
+/' father  <|-- son '/
+
+cartographer.metrics.Family <|-- cartographer.metrics.NullFamily
+cartographer.metrics.Family <|-- cartographer.cloud.metrics.prometheus.CounterFamily
+
+cartographer.metrics.Counter  <|-- cartographer.cloud.metrics.prometheus.Counter 
+cartographer.metrics.FamilyFactory <|-- cartographer.cloud.metrics.prometheus.FamilyFactory
+
+
+
+
+/' Aggregation relationships '/
+/' A --> B : use A 类使用 B 类 '/
+
+cartographer.metrics.FamilyFactory ..> cartographer.metrics.Family : use Family<Counter>
+cartographer.metrics.FamilyFactory ..> cartographer.metrics.Counter
+cartographer.metrics.Family --> cartographer.metrics.Counter
+
+
+cartographer.cloud.metrics.prometheus.FamilyFactory ..> cartographer.cloud.metrics.prometheus.CounterFamily : use 
+' cartographer.cloud.metrics.prometheus.CounterFamily "2" o-- cartographer.metrics.Counter
+
+
+' cartographer.cloud.metrics.prometheus.CounterFamily "2" *-- cartographer.metrics.Counter
+
+
+' cartographer.cloud.metrics.prometheus.CounterFamily *-- cartographer.metrics.Family
+
+
+
+
+
+
+
+/' Nested objects '/
+
+
+
+@enduml
+

@@ -1,0 +1,179 @@
+@startuml
+
+
+
+
+
+/' Objects '/
+
+namespace cartographer {
+	namespace metrics {
+		abstract class Counter {
+			+~Counter()
+			+{static} Null() : Counter*
+			+{abstract} Increment() : void
+			+{abstract} Increment(double by_value) : void
+		}
+
+		abstract class Family <template<typename MetricType>> {
+			+~Family()
+			+{static} Null() : Family<MetricType>*
+			+{abstract} Add(const std::map<std::string, std::string>& labels) : MetricType*
+		}
+
+		abstract class FamilyFactory {
+			+~FamilyFactory()
+			+{abstract} NewCounterFamily(const std::string& name, const std::string& description) : Family<Counter>*
+			+{abstract} NewGaugeFamily(const std::string& name, const std::string& description) : Family<Gauge>*
+			+{abstract} NewHistogramFamily(const std::string& name, const std::string& description, const Histogram::BucketBoundaries& boundaries) : Family<Histogram>*
+		}
+
+		abstract class Gauge {
+			+~Gauge()
+			+{static} Null() : Gauge*
+			+{abstract} Decrement() : void
+			+{abstract} Decrement(double by_value) : void
+			+{abstract} Increment() : void
+			+{abstract} Increment(double by_value) : void
+			+{abstract} Set(double value) : void
+		}
+
+		abstract class Histogram {
+			+~Histogram()
+			+{static} FixedWidth(double width, int num_finite_buckets) : BucketBoundaries
+			+{static} ScaledPowersOf(double base, double scale_factor, double max_value) : BucketBoundaries
+			+{static} Null() : Histogram*
+			+{abstract} Observe(double value) : void
+		}
+
+		class NullFamily <template<typename MetricType>> {
+			+Add(const std::map<std::string, std::string>& labels) : MetricType*
+		}
+	}
+
+	namespace cloud {
+		namespace metrics {
+			namespace prometheus {
+				class Counter {
+					+Counter(::prometheus::Counter* prometheus)
+					-prometheus_ : ::prometheus::Counter*
+					+Increment() : void
+					+Increment(double by_value) : void
+				}
+
+				class CounterFamily {
+					+CounterFamily(::prometheus::Family<::prometheus::Counter>* prometheus)
+					-prometheus_ : ::prometheus::Family<::prometheus::Counter>*
+					+Add(const std::map<std::string, std::string>& labels) : Counter*
+					-wrappers_ : absl::flat_hash_map<::prometheus::Counter*, std::unique_ptr<Counter>>
+					-wrappers_mutex_ : std::mutex
+				}
+
+				class FamilyFactory {
+					+FamilyFactory()
+					+NewCounterFamily(const std::string& name, const std::string& description) : ::cartographer::metrics::Family<::cartographer::metrics::Counter>*
+					+NewGaugeFamily(const std::string& name, const std::string& description) : ::cartographer::metrics::Family<::cartographer::metrics::Gauge>*
+					+NewHistogramFamily(const std::string& name, const std::string& description, const::cartographer::metrics::Histogram::BucketBoundaries& boundaries) : ::cartographer::metrics::Family<::cartographer::metrics::Histogram>*
+					-registry_ : std::shared_ptr<::prometheus::Registry>
+					-counters_ : std::vector<std::unique_ptr<::cartographer::metrics::Family<::cartographer::metrics::Counter>>>
+					-gauges_ : std::vector<std::unique_ptr<::cartographer::metrics::Family<::cartographer::metrics::Gauge>>>
+					-histograms_ : std::vector<std::unique_ptr<::cartographer::metrics::Family<::cartographer::metrics::Histogram>>>
+					+GetCollectable() : std::weak_ptr<::prometheus::Collectable> {query}
+				}
+
+				class Gauge {
+					+Gauge(::prometheus::Gauge* prometheus)
+					-prometheus_ : ::prometheus::Gauge*
+					+Decrement() : void
+					+Decrement(double by_value) : void
+					+Increment() : void
+					+Increment(double by_value) : void
+					+Set(double value) : void
+				}
+
+				class GaugeFamily {
+					+GaugeFamily(::prometheus::Family<::prometheus::Gauge>* prometheus)
+					-prometheus_ : ::prometheus::Family<::prometheus::Gauge>*
+					+Add(const std::map<std::string, std::string>& labels) : Gauge*
+					-wrappers_ : absl::flat_hash_map<::prometheus::Gauge*, std::unique_ptr<Gauge>>
+					-wrappers_mutex_ : std::mutex
+				}
+
+				class Histogram {
+					+Histogram(::prometheus::Histogram* prometheus)
+					-prometheus_ : ::prometheus::Histogram*
+					+Observe(double value) : void
+				}
+
+				class HistogramFamily {
+					+HistogramFamily(::prometheus::Family<::prometheus::Histogram>* prometheus, BucketBoundaries boundaries)
+					-prometheus_ : ::prometheus::Family<::prometheus::Histogram>*
+					-boundaries_ : BucketBoundaries
+					+Add(const std::map<std::string, std::string>& labels) : Histogram*
+					-wrappers_ : absl::flat_hash_map<::prometheus::Histogram*, std::unique_ptr<Histogram>>
+					-wrappers_mutex_ : std::mutex
+				}
+			}
+		}
+	}
+}
+
+
+
+
+
+/' Inheritance relationships '/
+
+cartographer.metrics.Family <|-- cartographer.metrics.NullFamily
+
+
+
+
+
+/' Aggregation relationships '/
+
+cartographer.metrics.Counter "4" o-- cartographer.metrics.Counter
+
+
+cartographer.cloud.metrics.prometheus.CounterFamily "2" o-- cartographer.metrics.Counter
+
+
+cartographer.cloud.metrics.prometheus.CounterFamily "2" *-- cartographer.metrics.Counter
+
+
+cartographer.cloud.metrics.prometheus.CounterFamily *-- cartographer.metrics.Family
+
+
+cartographer.metrics.Gauge "4" o-- cartographer.metrics.Gauge
+
+
+cartographer.cloud.metrics.prometheus.GaugeFamily *-- cartographer.metrics.Family
+
+
+cartographer.cloud.metrics.prometheus.GaugeFamily "2" o-- cartographer.metrics.Gauge
+
+
+cartographer.cloud.metrics.prometheus.GaugeFamily "2" *-- cartographer.metrics.Gauge
+
+
+cartographer.metrics.Histogram "4" o-- cartographer.metrics.Histogram
+
+
+cartographer.cloud.metrics.prometheus.HistogramFamily *-- cartographer.metrics.Family
+
+
+cartographer.cloud.metrics.prometheus.HistogramFamily "2" o-- cartographer.metrics.Histogram
+
+
+cartographer.cloud.metrics.prometheus.HistogramFamily "2" *-- cartographer.metrics.Histogram
+
+
+
+
+
+
+/' Nested objects '/
+
+
+
+@enduml

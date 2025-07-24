@@ -23,8 +23,8 @@ mkdir -p  build && doxygen ./doc_gen.doxy
 
 # cartographer
 
-文档阅读：vscode , extension: shd101wyy.markdown-preview-enhanced
-或使用其他类似软件
+* 文档阅读（渲染.puml文件）：vscode , extension: shd101wyy.markdown-preview-enhanced
+* 或使用其他类似软件
 
 ## cloud
 
