@@ -1,0 +1,51 @@
+@startuml
+
+
+
+
+
+/' Objects '/
+
+namespace cartographer {
+	namespace common {
+		class BlockingQueue <template<typename T>> {
+			+BlockingQueue()
+			+BlockingQueue(const size_t queue_size)
+			+Peek() : R*
+			+PeekWithTimeout(const common::Duration timeout) : R*
+			+Pop() : T
+			+PopWithTimeout(const common::Duration timeout) : T
+			-mutex_ : absl::Mutex
+			+PushWithTimeout(T t, const common::Duration timeout) : bool
+			-QueueEmptyCondition() EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : bool
+			-QueueNotFullCondition() EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : bool
+			+Size() : size_t
+			-GUARDED_BY(mutex_) : size_t queue_size_
+			+{static} kInfiniteQueueSize : static constexpr size_t
+			-GUARDED_BY(mutex_) : std::deque<T>deque_
+			+Push(T t) : void
+			+WaitUntilEmpty() : void
+		}
+	}
+}
+
+
+
+
+
+/' Inheritance relationships '/
+
+
+
+
+/' Aggregation relationships '/
+
+
+
+
+
+/' Nested objects '/
+
+
+
+@enduml

@@ -1,0 +1,86 @@
+@startuml
+
+
+
+
+
+/' Objects '/
+
+namespace cartographer {
+	namespace common {
+		abstract class Task {
+			+Task()
+			+~Task()
+			-GUARDED_BY(mutex_) : State state_
+			-GUARDED_BY(mutex_) : ThreadPoolInterface thread_pool_to_notify_*
+			-GUARDED_BY(mutex_) : WorkItem work_item_
+			-mutex_ : absl::Mutex
+			+GetState() LOCKS_EXCLUDED ( mutex_) : int
+			-GUARDED_BY(mutex_) : std::set<Task*>dependent_tasks_
+			-{abstract} GUARDED_BY(mutex_) : unsigned int uncompleted_dependencies_
+			+AddDependency(std::weak_ptr<Task>dependency ) LOCKS_EXCLUDED ( mutex_) : void
+			-AddDependentTask(Task* dependent_task) : void
+			-Execute() LOCKS_EXCLUDED ( mutex_) : void
+			-OnDependenyCompleted() : void
+			-SetThreadPool(ThreadPoolInterface* thread_pool ) LOCKS_EXCLUDED ( mutex_) : void
+			+SetWorkItem(function<void ( )> mutex_) : void
+		}
+
+		class ThreadPool {
+			+ThreadPool(int num_threads)
+			+~ThreadPool()
+			-mutex_ : absl::Mutex
+			-GUARDED_BY(mutex_) : absl::flat_hash_map<Task* , std::shared_ptr<Task>>tasks_not_ready_
+			-GUARDED_BY(mutex_) : bool running_
+			-GUARDED_BY(mutex_) : std::deque<std::shared_ptr<Task>>task_queue_
+			-GUARDED_BY(mutex_) : std::vector<std::thread>pool_
+			+Schedule(std::unique_ptr<Task>task ) LOCKS_EXCLUDED ( mutex_) : std::weak_ptr<Task>
+			-DoWork() : void
+			-NotifyDependenciesCompleted(Task* task ) LOCKS_EXCLUDED ( mutex_) : void
+		}
+
+		abstract class ThreadPoolInterface {
+			+ThreadPoolInterface()
+			+~ThreadPoolInterface()
+			+{abstract} Schedule(std::unique_ptr<Task> task) : std::weak_ptr<Task>
+			#Execute(Task* task) : void
+			-{abstract} NotifyDependenciesCompleted(Task* task) : void
+			#SetThreadPool(Task* task) : void
+		}
+
+		enum Task::State {
+			COMPLETED
+			DEPENDENCIES_COMPLETED
+			DISPATCHED
+			NEW
+			RUNNING
+		}
+	}
+}
+
+
+
+
+
+/' Inheritance relationships '/
+
+cartographer.common.ThreadPoolInterface <|-- cartographer.common.ThreadPool
+
+
+
+
+
+/' Aggregation relationships '/
+
+
+
+
+
+/' Nested objects '/
+
+cartographer.common.Task +-- cartographer.common.Task::State
+
+
+
+
+@enduml

@@ -1,0 +1,104 @@
+@startuml
+
+
+
+
+
+/' Objects '/
+
+namespace cartographer {
+	namespace common {
+		class ConfigurationFileResolver {
+			+ConfigurationFileResolver(const std::vector<std::string>& configuration_files_directories)
+			+GetFileContentOrDie(const std::string& basename) : std::string
+			+GetFullPathOrDie(const std::string& basename) : std::string
+			-configuration_files_directories_ : std::vector<std::string>
+		}
+
+		abstract class FileResolver {
+			+~FileResolver()
+			+{abstract} GetFileContentOrDie(const std::string& basename) : std::string
+			+{abstract} GetFullPathOrDie(const std::string& basename) : std::string
+		}
+
+		class LuaParameterDictionary {
+			-LuaParameterDictionary(const std::string& code, ReferenceCount reference_count, std::unique_ptr<FileResolver> file_resolver)
+			-LuaParameterDictionary(lua_State* L, ReferenceCount reference_count, std::shared_ptr<FileResolver> file_resolver)
+			+LuaParameterDictionary(const std::string& code, std::unique_ptr<FileResolver> file_resolver)
+			+~LuaParameterDictionary()
+			-reference_count_ : ReferenceCount
+			+GetBool(const std::string& key) : bool
+			+HasKey(const std::string& key) : bool {query}
+			-PopBool() : bool {query}
+			-file_resolver_ : const std::shared_ptr<FileResolver>
+			+GetDouble(const std::string& key) : double
+			-PopDouble() : double {query}
+			+GetInt(const std::string& key) : int
+			+GetNonNegativeInt(const std::string& key) : int
+			-{static} LuaInclude(lua_State* L) : int
+			-{static} LuaRead(lua_State* L) : int
+			-PopInt() : int {query}
+			-index_into_reference_table_ : int
+			-L_ : lua_State*
+			-reference_counts_ : std::map<std::string, int>
+			-DoToString(const std::string& indent) : std::string {query}
+			+GetString(const std::string& key) : std::string
+			-PopString(Quoted quoted) : std::string {query}
+			+ToString() : std::string {query}
+			+GetDictionary(const std::string& key) : std::unique_ptr<LuaParameterDictionary>
+			+{static} NonReferenceCounted(const std::string& code, std::unique_ptr<FileResolver> file_resolver) : std::unique_ptr<LuaParameterDictionary>
+			-PopDictionary(ReferenceCount reference_count) : std::unique_ptr<LuaParameterDictionary> {query}
+			+GetArrayValuesAsDoubles() : std::vector<double>
+			+GetArrayValuesAsStrings() : std::vector<std::string>
+			+GetKeys() : std::vector<std::string> {query}
+			-included_files_ : std::vector<std::string>
+			+GetArrayValuesAsDictionaries() : std::vector<std::unique_ptr<LuaParameterDictionary>>
+			-CheckAllKeysWereUsedExactlyOnceAndReset() : void
+			-CheckHasKey(const std::string& key) : void {query}
+			-CheckHasKeyAndReference(const std::string& key) : void
+		}
+
+		enum LuaParameterDictionary::Quoted {
+			NO
+			YES
+		}
+
+		enum LuaParameterDictionary::ReferenceCount {
+			NO
+			YES
+		}
+	}
+}
+
+
+
+
+
+/' Inheritance relationships '/
+
+cartographer.common.FileResolver <|-- cartographer.common.ConfigurationFileResolver
+
+
+
+
+
+/' Aggregation relationships '/
+
+cartographer.common.LuaParameterDictionary *-- cartographer.common.FileResolver
+
+
+
+
+
+
+/' Nested objects '/
+
+cartographer.common.LuaParameterDictionary +-- cartographer.common.LuaParameterDictionary::Quoted
+
+
+cartographer.common.LuaParameterDictionary +-- cartographer.common.LuaParameterDictionary::ReferenceCount
+
+
+
+
+@enduml
