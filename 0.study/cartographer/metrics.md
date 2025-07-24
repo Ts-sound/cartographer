@@ -39,8 +39,45 @@ void RegisterAllMetrics(FamilyFactory* registry) {
 ## 类图
 @import "./assets/puml/metrics/metrics.svg"{width=100%}
 <!-- ![](./assets/puml/metrics/metrics.svg){width=90%} -->
+* 简化类图 （Famaly<Counter>）
 @import "./assets/puml/metrics/metrics_concise.puml"
 
+* 设计采用 抽象工厂模式；
+* 最终实例 使用Prometheus实现，提供函数接口如下：
+  * 获取Counter(Gauge/Histogram) 实例；
+  * 获取收集数据, GetCollectable()；
+```c++
+/// cartographer/cloud/metrics/prometheus/family_factory.h
+ FamilyFactory : public ::cartographer::metrics::FamilyFactory {
+ public:
+  FamilyFactory();
+
+  ::cartographer::metrics::Family<::cartographer::metrics::Counter>*
+  NewCounterFamily(const std::string& name,
+                   const std::string& description) override;
+  ::cartographer::metrics::Family<::cartographer::metrics::Gauge>*
+  NewGaugeFamily(const std::string& name,
+                 const std::string& description) override;
+  ::cartographer::metrics::Family<::cartographer::metrics::Histogram>*
+  NewHistogramFamily(const std::string& name, const std::string& description,
+                     const ::cartographer::metrics::Histogram::BucketBoundaries&
+                         boundaries) override;
+
+  std::weak_ptr<::prometheus::Collectable> GetCollectable() const;
+ }
+```
+
+* 推测该功能最开始没有确定实现方案（或需要继承多个实现方案），所以采用 抽象工厂模式，方便集成扩展。
+
+> 优点：
+* 方便集成扩展;
+* 默认使用NullFamily 空实现，对性能几乎无影响；
+* 只需启动通过 RegisterAllMetrics()注册FamilyFactory实例就可以正常使用；
+> 缺点：
+* FamilyFactory(Prometheus) 代码耦合到一起了（通过USE_PROMETHEUS条件编译），该实例可以编译成独立so进行动态加载引用；
+* 启动也可改成通过配置 启用指定实例so或不启用，这样该功能灵活性更强；
+
+---
 
 ## Prometheus
 Prometheus 是一个开源的系统监控和告警工具包，
