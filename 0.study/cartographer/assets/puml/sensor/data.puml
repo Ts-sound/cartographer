@@ -1,0 +1,57 @@
+@startuml
+
+
+/' Objects '/
+
+namespace sensor {
+    abstract class Data {
+        +{abstract} GetTime() : time
+        +GetSensorId() : string
+        +{abstract} AddToTrajectoryBuilder(*trajectory_builder) : void
+    }
+
+
+    class Dispatchable<DataType> {
+        +data() : DataType&
+    }
+
+}
+
+
+
+
+
+
+
+/' Inheritance relationships '/
+/' father  <|-- son '/
+
+' sensor.Dispatchable<DataType> --|> sensor.Data
+sensor.Data <|-- sensor.Dispatchable
+
+
+
+
+/' Aggregation relationships '/
+/' A --> B : use A 类使用 B 类 '/
+
+' cartographer.metrics.FamilyFactory ..> cartographer.metrics.Family : use Family<Counter>
+' cartographer.metrics.FamilyFactory ..> cartographer.metrics.Counter
+' cartographer.metrics.Family --> cartographer.metrics.Counter
+
+
+' cartographer.cloud.metrics.prometheus.FamilyFactory ..> cartographer.cloud.metrics.prometheus.CounterFamily : use
+
+
+
+
+
+
+
+
+/' Nested objects '/
+
+
+
+@enduml
+

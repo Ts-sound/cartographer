@@ -2,6 +2,7 @@
 
 [toc]
 
+二维/三维 刚体姿态定义，及相关转换函数；
 
 # timestamped_transform.h
 
