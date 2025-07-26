@@ -24,7 +24,7 @@ struct RangeData {
 
 ///cartographer/mapping/internal/3d/local_trajectory_builder_3d.cc
 
-// TODO(wohe): since `misses` are not used anywhere in 3D, consider
+// (wohe): since `misses` are not used anywhere in 3D, consider
           // removing `misses` from `range_data` and/or everywhere in 3D.
           misses.push_back(sensor::RangefinderPoint{
               origin_in_local + options_.max_range() / range * delta});
@@ -53,7 +53,6 @@ struct LandmarkObservation {
 * compressed_point_cloud.h:  点云压缩类;
   * 目的：压缩ponits以减少存储空间, 有精度损失;
   * 精度定义: constexpr float kPrecision = 0.001f;  // in meters.
-
 
 ## data 关系类图
 
@@ -119,7 +118,6 @@ std::unique_ptr<Dispatchable<DataType>> MakeDispatchable(
 
 * 按(sensor_id, trajectory_id)维度统计
 * **Collator**没有实现任何指标监控
-
 
 ## voxel_filter.h （体素滤波）
 

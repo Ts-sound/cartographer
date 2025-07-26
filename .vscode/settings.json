@@ -1,4 +1,5 @@
 {
+    "todo-tree.general.rootFolder": "${workspaceFolder}/cartographer/0.study/",
     "markdown-preview-enhanced.plantumlJarPath": "/root/tong/plantuml-1.2025.4.jar",
     "files.associations": {
         "chrono": "cpp",
