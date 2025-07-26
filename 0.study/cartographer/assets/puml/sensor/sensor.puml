@@ -1,0 +1,222 @@
+@startuml
+
+
+
+
+
+/' Objects '/
+
+namespace cartographer {
+	namespace sensor {
+		abstract class CollatorInterface {
+			+CollatorInterface()
+			+~CollatorInterface()
+			+{abstract} GetBlockingTrajectoryId() : absl::optional<int> {query}
+			+{abstract} AddSensorData(int trajectory_id, std::unique_ptr<Data> data) : void
+			+{abstract} AddTrajectory(int trajectory_id, const absl::flat_hash_set<std::string>& expected_sensor_ids, function<void ( const std::string&, std::unique_ptr<Data>)> callback) : void
+			+{abstract} FinishTrajectory(int trajectory_id) : void
+			+{abstract} Flush() : void
+		}
+
+		class CompressedPointCloud {
+			+CompressedPointCloud()
+			+CompressedPointCloud(const PointCloud& point_cloud)
+			+CompressedPointCloud(const proto::CompressedPointCloud& proto)
+			+begin() : ConstIterator {query}
+			+end() : ConstIterator {query}
+			+Decompress() : PointCloud {query}
+			+empty() : bool {query}
+			+operator==(const CompressedPointCloud& right_hand_container) : bool {query}
+			+ToProto() : proto::CompressedPointCloud {query}
+			-num_points_ : size_t
+			+size() : size_t {query}
+			-point_data_ : std::vector<int32>
+		}
+
+		class CompressedPointCloud::ConstIterator {
+			+ConstIterator(const CompressedPointCloud* compressed_point_cloud)
+			+{static} EndIterator(const CompressedPointCloud* compressed_point_cloud) : ConstIterator
+			+operator++() : ConstIterator&
+			-current_point_ : Eigen::Vector3f
+			-current_block_coordinates_ : Eigen::Vector3i
+			+operator*() : RangefinderPoint {query}
+			+operator!=(const ConstIterator& it) : bool {query}
+			-compressed_point_cloud_ : const CompressedPointCloud*
+			-remaining_points_in_current_block_ : int
+			-remaining_points_ : size_t
+			-input_ : std::vector<int32>::const_iterator
+			-ReadNextPoint() : void
+		}
+
+		abstract class Data {
+			+Data(const std::string& sensor_id)
+			+~Data()
+			+{abstract} GetTime() : common::Time {query}
+			#sensor_id_ : const std::string
+			+GetSensorId() : std::string& {query}
+			+{abstract} AddToTrajectoryBuilder(mapping::TrajectoryBuilderInterface* trajectory_builder) : void
+		}
+
+		class MapByTime <template<typename DataType>> {
+			+BeginOfTrajectory(const int trajectory_id) : ConstIterator {query}
+			+EndOfTrajectory(const int trajectory_id) : ConstIterator {query}
+			+lower_bound(const int trajectory_id, const common::Time time) : ConstIterator {query}
+			+HasTrajectory(const int trajectory_id) : bool {query}
+			+trajectory(const int trajectory_id) : mapping::Range<ConstIterator> {query}
+			+trajectory_ids() : mapping::Range<ConstTrajectoryIterator> {query}
+			-data_ : std::map<int, std::map<common::Time, DataType>>
+			+Append(const int trajectory_id, const DataType& data) : void
+			+Trim(const mapping::MapById<mapping::NodeId, NodeType>& nodes, const mapping::NodeId& node_id) : void
+		}
+
+		class MapByTime::ConstIterator {
+			+ConstIterator(typename std::map<common::Time, DataType>::const_iterator iterator)
+			+operator++() : ConstIterator&
+			+operator--() : ConstIterator&
+			+operator*() : DataType& {query}
+			+operator->() : DataType* {query}
+			+operator!=(ConstIterator it) : bool {query}
+			+operator==(ConstIterator it) : bool {query}
+			-iterator_ : typename std::map<common::Time, DataType>::const_iterator
+		}
+
+		class MapByTime::ConstTrajectoryIterator {
+			+ConstTrajectoryIterator(typename std::map<int, std::map<common::Time, DataType>>::const_iterator current_trajectory)
+			+operator++() : ConstTrajectoryIterator&
+			+operator--() : ConstTrajectoryIterator&
+			+operator!=(ConstTrajectoryIterator it) : bool {query}
+			+operator==(ConstTrajectoryIterator it) : bool {query}
+			+operator*() : int {query}
+			-current_trajectory_ : typename std::map<int, std::map<common::Time, DataType>>::const_iterator
+		}
+
+		class PointCloud {
+			+PointCloud()
+			+PointCloud(std::vector<PointType> points)
+			+PointCloud(std::vector<PointType> points, std::vector<float> intensities)
+			+begin() : ConstIterator {query}
+			+end() : ConstIterator {query}
+			+copy_if(UnaryPredicate predicate) : PointCloud {query}
+			+operator[](const size_t index) : PointType& {query}
+			+empty() : bool {query}
+			+size() : size_t {query}
+			-points_ : std::vector<PointType>
+			+points() : std::vector<PointType>& {query}
+			-intensities_ : std::vector<float>
+			+intensities() : std::vector<float>& {query}
+			+push_back(RangefinderPoint value) : void
+		}
+
+		class FixedFramePoseData {
+			+pose : absl::optional<transform::Rigid3d>
+			+time : common::Time
+		}
+
+		class ImuData {
+			+angular_velocity : Eigen::Vector3d
+			+linear_acceleration : Eigen::Vector3d
+			+time : common::Time
+		}
+
+		class LandmarkData {
+			+time : common::Time
+			+landmark_observations : std::vector<LandmarkObservation>
+		}
+
+		class LandmarkObservation {
+			+rotation_weight : double
+			+translation_weight : double
+			+id : std::string
+			+landmark_to_tracking_transform : transform::Rigid3d
+		}
+
+		class OdometryData {
+			+time : common::Time
+			+pose : transform::Rigid3d
+		}
+
+		class PointCloudWithIntensities {
+			+intensities : std::vector<float>
+			+points : vector<TimedRangefinderPoint>
+		}
+
+		class RangeData {
+			+origin : Eigen::Vector3f
+			+misses : PointCloud
+			+returns : PointCloud
+		}
+
+		class RangefinderPoint {
+			+position : Eigen::Vector3f
+		}
+
+		class TimedPointCloudData {
+			+origin : Eigen::Vector3f
+			+ranges : TimedPointCloud
+			+time : common::Time
+			+intensities : std::vector<float>
+		}
+
+		class TimedPointCloudOriginData {
+			+time : common::Time
+			+origins : std::vector<Eigen::Vector3f>
+			+ranges : std::vector<RangeMeasurement>
+		}
+
+		class TimedPointCloudOriginData::RangeMeasurement {
+			+point_time : TimedRangefinderPoint
+			+intensity : float
+			+origin_index : size_t
+		}
+
+		class TimedRangefinderPoint {
+			+position : Eigen::Vector3f
+			+time : float
+		}
+	}
+}
+
+
+
+
+
+/' Inheritance relationships '/
+
+
+
+
+/' Aggregation relationships '/
+
+cartographer.sensor.CompressedPointCloud::ConstIterator o-- cartographer.sensor.CompressedPointCloud
+
+
+cartographer.sensor.LandmarkData *-- cartographer.sensor.LandmarkObservation
+
+
+cartographer.sensor.PointCloudWithIntensities *-- cartographer.sensor.TimedRangefinderPoint
+
+
+cartographer.sensor.RangeData "2" *-- cartographer.sensor.PointCloud
+
+
+cartographer.sensor.TimedPointCloudOriginData::RangeMeasurement *-- cartographer.sensor.TimedRangefinderPoint
+
+
+
+
+
+
+/' Nested objects '/
+
+cartographer.sensor.MapByTime +-- cartographer.sensor.MapByTime::ConstIterator
+
+
+cartographer.sensor.MapByTime +-- cartographer.sensor.MapByTime::ConstTrajectoryIterator
+
+
+cartographer.sensor.TimedPointCloudOriginData +-- cartographer.sensor.TimedPointCloudOriginData::RangeMeasurement
+
+
+
+
+@enduml

@@ -1,0 +1,69 @@
+@startuml
+
+' Vehicle (交通工具)
+' Car (汽车)
+' Engine (引擎)
+' Wheel (轮胎)
+' GPS (GPS系统)
+' Driver (驾驶员)
+' IDrivable (可驾驶接口)
+
+' 关系：
+' 继承：Car 继承自 Vehicle
+' 接口实现：Driver 实现 IDrivable
+' 构成：Car 由 Engine 构成（Composition）
+' 聚合：Car 聚合 Wheel（Aggregation）
+' 强依赖：Driver 使用 Car（Dependency，强）
+' 弱依赖：Car 使用 GPS（Dependency，弱）
+
+' 定义类
+class Vehicle {
+  + name: String
+  + move(): void
+}
+
+class Car {
+  + brand: String
+  + drive(): void
+}
+
+interface Drivable {
+  {abstract}
+  + drive(): void
+}
+
+class Driver {
+  + name: String
+  + operateVehicle(Car): void
+}
+
+class Engine {
+  + model: String
+  + start(): void
+}
+
+class Wheel {
+  + size: int
+  + rotate(): void
+}
+
+class GPS {
+  + locate(): void
+}
+
+' 定义关系
+Vehicle <|-- Car : Inheritance (Specialization)           
+Drivable <|.. Driver : Interface Implementation
+Car *-- Engine :  Composition (strong lifecycle dependency)
+Car o-- Wheel :  Aggregation (weak lifecycle dependency)
+Driver --> Car :  Dependency (strong association)
+Car ..> GPS :  Dependency (weak usage)
+
+' 继承 son --|> father
+' 接口实现 driver ..|> driverinterface
+' Composition Car *-- Engine , strong lifecycle
+' Aggregation Car o-- Wheel  , week
+' Dependency  Car --> GPS strong,week:..>
+
+
+@enduml 

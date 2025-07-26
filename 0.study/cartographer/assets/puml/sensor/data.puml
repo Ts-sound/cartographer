@@ -3,7 +3,6 @@
 
 /' Objects '/
 
-namespace sensor {
     abstract class Data {
         +{abstract} GetTime() : time
         +GetSensorId() : string
@@ -15,6 +14,21 @@ namespace sensor {
         +data() : DataType&
     }
 
+    class CollatorInterface{
+        +{abstract} AddTrajectory(trajectory_id,expected_sensor_ids,callback):void 
+        +{abstract} FinishTrajectory(trajectory_id):void 
+        +{abstract} AddSensorData(trajectory_id,data):void
+    }
+
+    class Collator{}
+    
+    class TrajectoryCollator{}
+
+    class OrderedMultiQueue{}
+
+
+namespace mapping{
+    class TrajectoryBuilderInterface{}
 }
 
 
@@ -23,29 +37,33 @@ namespace sensor {
 
 
 
-/' Inheritance relationships '/
-/' father  <|-- son '/
-
-' sensor.Dispatchable<DataType> --|> sensor.Data
-sensor.Data <|-- sensor.Dispatchable
 
 
+' 继承 son --|> father
+'
+Dispatchable --|> Data
 
 
-/' Aggregation relationships '/
-/' A --> B : use A 类使用 B 类 '/
-
-' cartographer.metrics.FamilyFactory ..> cartographer.metrics.Family : use Family<Counter>
-' cartographer.metrics.FamilyFactory ..> cartographer.metrics.Counter
-' cartographer.metrics.Family --> cartographer.metrics.Counter
-
-
-' cartographer.cloud.metrics.prometheus.FamilyFactory ..> cartographer.cloud.metrics.prometheus.CounterFamily : use
+' 接口实现 driver ..|> driverinterface
+'
+Collator  ..|> CollatorInterface
+TrajectoryCollator ..|> CollatorInterface
 
 
 
+' 聚合 Car *-- Engine , strong lifecycle,week : o--
 
 
+Collator *-- OrderedMultiQueue
+
+OrderedMultiQueue o-- Dispatchable
+OrderedMultiQueue *-- common.BlockingQueue
+TrajectoryCollator  *-- OrderedMultiQueue
+
+' 依赖 Dependency  Car --> GPS strong,week:..>
+CollatorInterface  ..>  Data
+
+Dispatchable ..> mapping.TrajectoryBuilderInterface
 
 
 
