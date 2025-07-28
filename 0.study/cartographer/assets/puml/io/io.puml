@@ -1,0 +1,574 @@
+@startuml
+
+
+
+
+
+/' Objects '/
+
+namespace cartographer {
+	namespace io {
+		class ColoringPointsProcessor {
+			+ColoringPointsProcessor(const FloatColor& color, const std::string& frame_id, PointsProcessor* next)
+			+~ColoringPointsProcessor()
+			+Flush() : FlushResult
+			-next_ : PointsProcessor* const
+			-color_ : const FloatColor
+			-frame_id_ : const std::string
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			+{static} FromDictionary(common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<ColoringPointsProcessor>
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+		}
+
+		class CountingPointsProcessor {
+			+CountingPointsProcessor(PointsProcessor* next)
+			+~CountingPointsProcessor()
+			+Flush() : FlushResult
+			-next_ : PointsProcessor*
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			-num_points_ : int64_t
+			+{static} FromDictionary(common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<CountingPointsProcessor>
+			+Process(std::unique_ptr<PointsBatch> points) : void
+		}
+
+		class FakeFileWriter {
+			+FakeFileWriter(const std::string& filename, std::shared_ptr<std::vector<char>> content)
+			+~FakeFileWriter()
+			+Close() : bool
+			+Write(const char* data, size_t len) : bool
+			+WriteHeader(const char* data, size_t len) : bool
+			-is_closed_ : bool
+			-content_ : std::shared_ptr<std::vector<char>>
+			+GetFilename() : std::string
+			-filename_ : std::string
+		}
+
+		abstract class FileWriter {
+			+FileWriter()
+			+~FileWriter()
+			+{abstract} Close() : bool
+			+{abstract} Write(const char* data, size_t len) : bool
+			+{abstract} WriteHeader(const char* data, size_t len) : bool
+			+{abstract} GetFilename() : std::string
+		}
+
+		class FixedRatioSamplingPointsProcessor {
+			+FixedRatioSamplingPointsProcessor(double sampling_ratio, PointsProcessor* next)
+			+~FixedRatioSamplingPointsProcessor()
+			+Flush() : FlushResult
+			-next_ : PointsProcessor* const
+			-sampling_ratio_ : const double
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			+{static} FromDictionary(common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<FixedRatioSamplingPointsProcessor>
+			-sampler_ : std::unique_ptr<common::FixedRatioSampler>
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+		}
+
+		class FrameIdFilteringPointsProcessor {
+			+FrameIdFilteringPointsProcessor(const absl::flat_hash_set<std::string>& keep_frame_ids, const absl::flat_hash_set<std::string>& drop_frame_ids, PointsProcessor* next)
+			+~FrameIdFilteringPointsProcessor()
+			+Flush() : FlushResult
+			-next_ : PointsProcessor* const
+			-drop_frame_ids_ : const absl::flat_hash_set<std::string>
+			-keep_frame_ids_ : const absl::flat_hash_set<std::string>
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			+{static} FromDictionary(common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<FrameIdFilteringPointsProcessor>
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+		}
+
+		class HybridGridPointsProcessor {
+			+HybridGridPointsProcessor(double voxel_size, const mapping::proto::RangeDataInserterOptions3D& range_data_inserter_options, std::unique_ptr<FileWriter> file_writer, PointsProcessor* next)
+			+~HybridGridPointsProcessor()
+			+Flush() : FlushResult
+			-next_ : PointsProcessor* const
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			-hybrid_grid_ : mapping::HybridGrid
+			-range_data_inserter_ : mapping::RangeDataInserter3D
+			-file_writer_ : std::unique_ptr<FileWriter>
+			+{static} FromDictionary(const FileWriterFactory& file_writer_factory, common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<HybridGridPointsProcessor>
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+		}
+
+		class Image {
+			+Image(unique_ptr<cairo_surface_t, void (* ) ( cairo_surface_t* )> surface)
+			+Image(int width, int height)
+			+GetPixel(int x, int y) : Uint8Color {query}
+			+GetCairoSurface() : UniqueCairoSurfacePtr
+			+height() : int {query}
+			-height_ : int
+			+width() : int {query}
+			-width_ : int
+			-pixels_ : std::vector<uint32>
+			+Rotate90DegreesClockwise() : void
+			+SetPixel(int x, int y, const Uint8Color& color) : void
+			+WritePng(FileWriter* const file_writer) : void
+		}
+
+		class IntensityToColorPointsProcessor {
+			+IntensityToColorPointsProcessor(float min_intensity, float max_intensity, const std::string& frame_id, PointsProcessor* next)
+			+~IntensityToColorPointsProcessor()
+			+Flush() : FlushResult
+			-next_ : PointsProcessor* const
+			-max_intensity_ : const float
+			-min_intensity_ : const float
+			-frame_id_ : const std::string
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			+{static} FromDictionary(common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<IntensityToColorPointsProcessor>
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+		}
+
+		class MinMaxRangeFilteringPointsProcessor {
+			+MinMaxRangeFilteringPointsProcessor(double min_range, double max_range, PointsProcessor* next)
+			+~MinMaxRangeFilteringPointsProcessor()
+			+Flush() : FlushResult
+			-next_ : PointsProcessor* const
+			-max_range_squared_ : const double
+			-min_range_squared_ : const double
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			+{static} FromDictionary(common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<MinMaxRangeFilteringPointsProcessor>
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+		}
+
+		class NullPointsProcessor {
+			+NullPointsProcessor()
+			+~NullPointsProcessor()
+			+Flush() : FlushResult
+			+Process(std::unique_ptr<PointsBatch> points_batch) : void
+		}
+
+		class OutlierRemovingPointsProcessor {
+			+OutlierRemovingPointsProcessor(double voxel_size, double miss_per_hit_limit, PointsProcessor* next)
+			+~OutlierRemovingPointsProcessor()
+			+Flush() : FlushResult
+			-next_ : PointsProcessor* const
+			-state_ : State
+			-miss_per_hit_limit_ : const double
+			-voxel_size_ : const double
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			-voxels_ : mapping::HybridGridBase<VoxelData>
+			+{static} FromDictionary(common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<OutlierRemovingPointsProcessor>
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+			-ProcessInPhaseOne(const PointsBatch& batch) : void
+			-ProcessInPhaseThree(std::unique_ptr<PointsBatch> batch) : void
+			-ProcessInPhaseTwo(const PointsBatch& batch) : void
+		}
+
+		class PcdWritingPointsProcessor {
+			+PcdWritingPointsProcessor(std::unique_ptr<FileWriter> file_writer, PointsProcessor* next)
+			+~PcdWritingPointsProcessor()
+			+Flush() : FlushResult
+			-next_ : PointsProcessor* const
+			-has_colors_ : bool
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			-num_points_ : int64_t
+			-file_writer_ : std::unique_ptr<FileWriter>
+			+{static} FromDictionary(FileWriterFactory file_writer_factory, common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<PcdWritingPointsProcessor>
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+		}
+
+		class PlyWritingPointsProcessor {
+			+PlyWritingPointsProcessor(std::unique_ptr<FileWriter> file_writer, const std::vector<std::string>& comments, PointsProcessor* next)
+			+~PlyWritingPointsProcessor()
+			+Flush() : FlushResult
+			-next_ : PointsProcessor* const
+			-has_colors_ : bool
+			-has_intensities_ : bool
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			-num_points_ : int64_t
+			-file_ : std::unique_ptr<FileWriter>
+			+{static} FromDictionary(const FileWriterFactory& file_writer_factory, common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<PlyWritingPointsProcessor>
+			-comments_ : std::vector<std::string>
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+		}
+
+		abstract class PointsProcessor {
+			+PointsProcessor()
+			+~PointsProcessor()
+			+{abstract} Flush() : int
+			+{abstract} Process(std::unique_ptr<PointsBatch> points_batch) : void
+		}
+
+		class PointsProcessorPipelineBuilder {
+			+PointsProcessorPipelineBuilder()
+			-factories_ : absl::flat_hash_map<std::string, FactoryFunction>
+			+CreatePipeline(common::LuaParameterDictionary* dictionary) : std::vector<std::unique_ptr<PointsProcessor>> {query}
+			+Register(const std::string& name, function<std::unique_ptr<PointsProcessor>( common::LuaParameterDictionary*, PointsProcessor* next )> factory) : void
+		}
+
+		class ProbabilityGridPointsProcessor {
+			+ProbabilityGridPointsProcessor(double resolution, const mapping::proto::ProbabilityGridRangeDataInserterOptions2D& probability_grid_range_data_inserter_options, DrawTrajectories draw_trajectories, OutputType output_type, std::unique_ptr<FileWriter> file_writer, const std::vector<mapping::proto::Trajectory>& trajectories, PointsProcessor* next)
+			+~ProbabilityGridPointsProcessor()
+			-draw_trajectories_ : DrawTrajectories
+			+Flush() : FlushResult
+			-output_type_ : OutputType
+			-next_ : PointsProcessor* const
+			-trajectories_ : const std::vector<mapping::proto::Trajectory>
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			-probability_grid_ : mapping::ProbabilityGrid
+			-range_data_inserter_ : mapping::ProbabilityGridRangeDataInserter2D
+			-conversion_tables_ : mapping::ValueConversionTables
+			-file_writer_ : std::unique_ptr<FileWriter>
+			+{static} FromDictionary(const std::vector<mapping::proto::Trajectory>& trajectories, const FileWriterFactory& file_writer_factory, common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<ProbabilityGridPointsProcessor>
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+		}
+
+		class ProtoStreamDeserializer {
+			+ProtoStreamDeserializer(ProtoStreamReaderInterface* const reader)
+			-reader_ : ProtoStreamReaderInterface*
+			+ReadNextSerializedData(mapping::proto::SerializedData* data) : bool
+			+all_trajectory_builder_options() : mapping::proto::AllTrajectoryBuilderOptions&
+			+pose_graph() : mapping::proto::PoseGraph&
+			+pose_graph() : mapping::proto::PoseGraph& {query}
+			-header_ : mapping::proto::SerializationHeader
+			+header() : mapping::proto::SerializationHeader&
+			-all_trajectory_builder_options_ : mapping::proto::SerializedData
+			-pose_graph_ : mapping::proto::SerializedData
+		}
+
+		class ProtoStreamReader {
+			+ProtoStreamReader(const std::string& filename)
+			+~ProtoStreamReader()
+			-Read(std::string* decompressed_data) : bool
+			+ReadProto(google::protobuf::Message* proto) : bool
+			+eof() : bool {query}
+			-in_ : std::ifstream
+		}
+
+		abstract class ProtoStreamReaderInterface {
+			+ProtoStreamReaderInterface()
+			+~ProtoStreamReaderInterface()
+			+{abstract} ReadProto(google::protobuf::Message* proto) : bool
+			+{abstract} eof() : bool {query}
+		}
+
+		class ProtoStreamWriter {
+			+ProtoStreamWriter(const std::string& filename)
+			+~ProtoStreamWriter()
+			+Close() : bool
+			-out_ : std::ofstream
+			-Write(const std::string& uncompressed_data) : void
+			+WriteProto(const google::protobuf::Message& proto) : void
+		}
+
+		abstract class ProtoStreamWriterInterface {
+			+~ProtoStreamWriterInterface()
+			+{abstract} Close() : bool
+			+{abstract} WriteProto(const google::protobuf::Message& proto) : void
+		}
+
+		class StreamFileWriter {
+			+StreamFileWriter(const std::string& filename)
+			+~StreamFileWriter()
+			+Close() : bool
+			+Write(const char* data, size_t len) : bool
+			+WriteHeader(const char* data, size_t len) : bool
+			-filename_ : const std::string
+			-out_ : std::ofstream
+			+GetFilename() : std::string
+		}
+
+		class VerticalRangeFilteringPointsProcessor {
+			+VerticalRangeFilteringPointsProcessor(double min_z, double max_z, PointsProcessor* next)
+			+~VerticalRangeFilteringPointsProcessor()
+			+Flush() : FlushResult
+			-next_ : PointsProcessor* const
+			-max_z_ : const double
+			-min_z_ : const double
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			+{static} FromDictionary(common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<VerticalRangeFilteringPointsProcessor>
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+		}
+
+		class XRayPointsProcessor {
+			+XRayPointsProcessor(double voxel_size, double saturation_factor, const transform::Rigid3f& transform, const std::vector<mapping::Floor>& floors, DrawTrajectories draw_trajectories, const std::string& output_filename, const std::vector<mapping::proto::Trajectory>& trajectories, FileWriterFactory file_writer_factory, PointsProcessor* next)
+			+~XRayPointsProcessor()
+			-draw_trajectories_ : DrawTrajectories
+			+bounding_box() : Eigen::AlignedBox3i {query}
+			-bounding_box_ : Eigen::AlignedBox3i
+			-file_writer_factory_ : FileWriterFactory
+			+Flush() : FlushResult
+			-next_ : PointsProcessor* const
+			-saturation_factor_ : const double
+			-output_filename_ : const std::string
+			-trajectories_ : const std::vector<mapping::proto::Trajectory>
+			-transform_ : const transform::Rigid3f
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			+{static} FromDictionary(const std::vector<mapping::proto::Trajectory>& trajectories, FileWriterFactory file_writer_factory, common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<XRayPointsProcessor>
+			-aggregations_ : std::vector<Aggregation>
+			-floors_ : std::vector<mapping::Floor>
+			-Insert(const PointsBatch& batch, Aggregation aggregation) : void
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+			-WriteVoxels(Aggregation aggregation, FileWriter* const file_writer) : void
+		}
+
+		class XyzWriterPointsProcessor {
+			+XyzWriterPointsProcessor(std::unique_ptr<FileWriter>, PointsProcessor* next)
+			+~XyzWriterPointsProcessor()
+			+Flush() : FlushResult
+			-next_ : PointsProcessor* const
+			+{static} kConfigurationFileActionName : constexpr static const char*
+			-file_writer_ : std::unique_ptr<FileWriter>
+			+{static} FromDictionary(const FileWriterFactory& file_writer_factory, common::LuaParameterDictionary* dictionary, PointsProcessor* next) : std::unique_ptr<XyzWriterPointsProcessor>
+			+Process(std::unique_ptr<PointsBatch> batch) : void
+		}
+
+		enum OutlierRemovingPointsProcessor::State {
+			kPhase1
+			kPhase2
+			kPhase3
+		}
+
+		enum PointsProcessor::FlushResult {
+			kFinished
+			kRestartStream
+		}
+
+		enum ProbabilityGridPointsProcessor::DrawTrajectories {
+			kNo
+			kYes
+		}
+
+		enum ProbabilityGridPointsProcessor::OutputType {
+			kPb
+			kPng
+		}
+
+		enum XRayPointsProcessor::DrawTrajectories {
+			kNo
+			kYes
+		}
+
+		class OutlierRemovingPointsProcessor::VoxelData {
+			+hits : int
+			+rays : int
+		}
+
+		class PaintSubmapSlicesResult {
+			+PaintSubmapSlicesResult(::cartographer::io::UniqueCairoSurfacePtr surface, Eigen::Array2f origin)
+			+surface : ::cartographer::io::UniqueCairoSurfacePtr
+			+origin : Eigen::Array2f
+		}
+
+		class PointsBatch {
+			+PointsBatch()
+			+origin : Eigen::Vector3f
+			+start_time : common::Time
+			+trajectory_id : int
+			+frame_id : std::string
+			+colors : std::vector<FloatColor>
+			+intensities : std::vector<float>
+			+points : std::vector<sensor::RangefinderPoint>
+		}
+
+		class SubmapSlice {
+			+SubmapSlice()
+			+surface : ::cartographer::io::UniqueCairoSurfacePtr
+			+pose : ::cartographer::transform::Rigid3d
+			+slice_pose : ::cartographer::transform::Rigid3d
+			+resolution : double
+			+height : int
+			+metadata_version : int
+			+version : int
+			+width : int
+			+cairo_data : std::vector<uint32_t>
+		}
+
+		class SubmapTexture {
+			+slice_pose : ::cartographer::transform::Rigid3d
+			+pixels : Pixels
+			+resolution : double
+			+height : int
+			+width : int
+		}
+
+		class SubmapTexture::Pixels {
+			+alpha : std::vector<char>
+			+intensity : std::vector<char>
+		}
+
+		class SubmapTextures {
+			+version : int
+			+textures : std::vector<SubmapTexture>
+		}
+
+		class XRayPointsProcessor::Aggregation {
+			+voxels : mapping::HybridGridBase<bool>
+			+column_data : std::map<std::pair<int, int>, ColumnData>
+		}
+
+		class XRayPointsProcessor::ColumnData {
+			+sum_b : float
+			+sum_g : float
+			+sum_r : float
+			+count : uint32_t
+		}
+	}
+}
+
+
+
+
+
+/' Inheritance relationships '/
+
+cartographer.io.FileWriter <|-- cartographer.io.FakeFileWriter
+
+
+cartographer.io.FileWriter <|-- cartographer.io.StreamFileWriter
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.ColoringPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.CountingPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.FixedRatioSamplingPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.FrameIdFilteringPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.HybridGridPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.IntensityToColorPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.MinMaxRangeFilteringPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.NullPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.OutlierRemovingPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.PcdWritingPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.PlyWritingPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.ProbabilityGridPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.VerticalRangeFilteringPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.XRayPointsProcessor
+
+
+cartographer.io.PointsProcessor <|-- cartographer.io.XyzWriterPointsProcessor
+
+
+cartographer.io.ProtoStreamReaderInterface <|-- cartographer.io.ProtoStreamReader
+
+
+cartographer.io.ProtoStreamWriterInterface <|-- cartographer.io.ProtoStreamWriter
+
+
+
+
+
+/' Aggregation relationships '/
+
+cartographer.io.ColoringPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.CountingPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.FixedRatioSamplingPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.FrameIdFilteringPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.HybridGridPointsProcessor *-- cartographer.io.FileWriter
+
+
+cartographer.io.HybridGridPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.IntensityToColorPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.MinMaxRangeFilteringPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.OutlierRemovingPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.PcdWritingPointsProcessor *-- cartographer.io.FileWriter
+
+
+cartographer.io.PcdWritingPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.PlyWritingPointsProcessor *-- cartographer.io.FileWriter
+
+
+cartographer.io.PlyWritingPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.ProbabilityGridPointsProcessor *-- cartographer.io.FileWriter
+
+
+cartographer.io.ProbabilityGridPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.ProtoStreamDeserializer o-- cartographer.io.ProtoStreamReaderInterface
+
+
+cartographer.io.SubmapTextures *-- cartographer.io.SubmapTexture
+
+
+cartographer.io.VerticalRangeFilteringPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.XRayPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+cartographer.io.XyzWriterPointsProcessor *-- cartographer.io.FileWriter
+
+
+cartographer.io.XyzWriterPointsProcessor o-- cartographer.io.PointsProcessor
+
+
+
+
+
+
+/' Nested objects '/
+
+cartographer.io.OutlierRemovingPointsProcessor +-- cartographer.io.OutlierRemovingPointsProcessor::State
+
+
+cartographer.io.OutlierRemovingPointsProcessor +-- cartographer.io.OutlierRemovingPointsProcessor::VoxelData
+
+
+cartographer.io.PointsProcessor +-- cartographer.io.PointsProcessor::FlushResult
+
+
+cartographer.io.ProbabilityGridPointsProcessor +-- cartographer.io.ProbabilityGridPointsProcessor::DrawTrajectories
+
+
+cartographer.io.ProbabilityGridPointsProcessor +-- cartographer.io.ProbabilityGridPointsProcessor::OutputType
+
+
+cartographer.io.SubmapTexture +-- cartographer.io.SubmapTexture::Pixels
+
+
+cartographer.io.XRayPointsProcessor +-- cartographer.io.XRayPointsProcessor::Aggregation
+
+
+cartographer.io.XRayPointsProcessor +-- cartographer.io.XRayPointsProcessor::ColumnData
+
+
+cartographer.io.XRayPointsProcessor +-- cartographer.io.XRayPointsProcessor::DrawTrajectories
+
+
+
+
+@enduml

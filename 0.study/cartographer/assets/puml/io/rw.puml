@@ -1,0 +1,45 @@
+@startuml
+
+
+/' Objects '/
+
+abstract class ProtoStreamWriterInterface {
+    +{abstract} WriteProto(& proto)() : void
+}
+abstract class ProtoStreamReaderInterface {
+    +{abstract} ReadProto(* proto)() : bool
+}
+
+
+
+
+' 继承 son --|> father
+'
+
+
+' 接口实现 driver ..|> driverinterface
+ProtoStreamWriter ..|> ProtoStreamWriterInterface
+ProtoStreamReader ..|> ProtoStreamReaderInterface
+
+'
+
+
+
+' 聚合 Car *-- Engine , strong lifecycle,week : o--
+ProtoStreamWriter *.. std.ofstream
+ProtoStreamReader *.. std.ifstream
+ProtoStreamDeserializer *.. ProtoStreamReaderInterface
+
+
+' 依赖 Dependency  Car --> GPS strong,week:..>
+ProtoStreamWriter ..> FastGzip
+ProtoStreamReader ..> FastGzip
+
+
+
+/' Nested objects '/
+
+
+
+@enduml
+

@@ -106,12 +106,28 @@ def handle_sensor():
     output_file = sensor_out_path +"/sensor.puml"
     gen_puml(input_files, output_file)
 
+def handle_io():
+    """
+    Handle the io case.
+    """
+    io_path = os.path.join(workpath, "cartographer", "io")
+    io_out_path = os.path.join(
+        workpath, "0.study", "cartographer", "assets", "puml", "io"
+    )
+    os.makedirs(io_out_path, exist_ok=True)
+    
+    # gen io.puml
+    input_files = glob.glob(os.path.join(io_path, "*.h"),recursive=True)
+    output_file = io_out_path +"/io.puml"
+    gen_puml(input_files, output_file)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="gen puml from cpp header file")
     parser.add_argument("--common", help="", type=bool, default=False)
     parser.add_argument("--metrics", help="", type=bool, default=False)
     parser.add_argument("--sensor", help="", type=bool, default=False)
+    parser.add_argument("--io", help="", type=bool, default=False)
 
     if parser.parse_args().common:
         handle_common()
@@ -119,6 +135,8 @@ if __name__ == "__main__":
         handle_metrics()
     elif parser.parse_args().sensor:
         handle_sensor()
+    elif parser.parse_args().io:
+        handle_io()
 
 
 # hpp2plantuml -i  ../../cartographer/common/internal/blocking_queue.h -o common.puml

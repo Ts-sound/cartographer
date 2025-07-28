@@ -1,0 +1,69 @@
+
+@startuml
+
+
+/' Objects '/
+
+abstract class FileWriter {
+    +{abstract} WriteHeader(const char* data, size_t len) : bool
+    +{abstract} Write(const char* data, size_t len) : bool
+    +{abstract} Close() : bool
+}
+
+class Image{
+    WritePng(FileWriter* const file_writer)
+}
+
+class PointsBatch {
+    Eigen::Vector3f origin;
+    int trajectory_id;
+    vector<RangefinderPoint> points;
+    vector<float> intensities;
+}
+
+abstract class PointsProcessor {
+    Process(std::unique_ptr<PointsBatch> points_batch):void
+    Flush() :FlushResult
+}
+
+class PointsProcessorPipelineBuilder {
+      CreatePipeline(Lua_dictionary) : vector<PointsProcessor>;
+      Register(string name, FactoryFunction factory): void 
+
+}
+
+
+
+
+
+' 继承 son --|> father
+
+__xxx__PointsProcessor --|> PointsProcessor
+StreamFileWriter --|> FileWriter
+'
+
+
+' 接口实现 driver ..|> driverinterface
+
+'
+
+
+
+' 聚合 Car *-- Engine , strong lifecycle,week : o--
+PointsProcessor  *-- PointsBatch
+StreamFileWriter *-- std.ofstream
+PointsProcessorPipelineBuilder *-- PointsProcessor
+
+' 依赖 Dependency  Car --> GPS strong,week:..>
+Image ..> Cairo : cairo image
+Image ..> FileWriter
+__xxx__PointsProcessor ..> Image
+__xxx__PointsProcessor ..> FileWriter
+
+
+/' Nested objects '/
+
+
+
+@enduml
+
