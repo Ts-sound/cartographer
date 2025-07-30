@@ -18,10 +18,11 @@ set -o errexit
 set -o verbose
 
 # Build and install Cartographer.
-cd cartographer
-mkdir build
+# cd cartographer
+mkdir -p build
 cd build
-cmake .. -G Ninja
+# cmake .. -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+cmake .. -G Ninja -DBUILD_PROMETHEUS=ON  -DCMAKE_INSTALL_PREFIX=/opt/tong/prefix
 ninja
 CTEST_OUTPUT_ON_FAILURE=1 ninja test
 sudo ninja install
