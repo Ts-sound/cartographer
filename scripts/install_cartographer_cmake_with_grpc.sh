@@ -18,7 +18,7 @@ set -o errexit
 set -o verbose
 
 # Build and install Cartographer.
-cd cartographer
+# cd cartographer
 mkdir build
 cd build
 cmake .. -DBUILD_GRPC=ON -DBUILD_PROMETHEUS=ON -G Ninja

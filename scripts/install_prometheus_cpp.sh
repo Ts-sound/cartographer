@@ -17,14 +17,16 @@
 set -o errexit
 set -o verbose
 
-COMMIT="4e0814ee3f93b796356a51a4795a332568940a72"
+# COMMIT="4e0814ee3f93b796356a51a4795a332568940a72"
+VERSION="v1.3.0"
 
 git clone https://github.com/jupp0r/prometheus-cpp.git
 cd prometheus-cpp
-git checkout ${COMMIT}
+# git checkout ${COMMIT}
+git checkout -b ${VERSION}
 git submodule update --init
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON  ..
+make 
 sudo make install
