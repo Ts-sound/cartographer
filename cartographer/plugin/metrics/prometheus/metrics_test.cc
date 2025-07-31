@@ -27,6 +27,7 @@
 #include <boost/dll/shared_library.hpp>
 #include <iostream>
 #include <memory>
+#include <thread>
 
 namespace cartographer {
 namespace plugin {
@@ -88,13 +89,27 @@ class Algorithm {
       auto* scores_family = factory->NewHistogramFamily(
           "algorithm_scores", "Scores achieved", boundaries);
       kScoresMetric = scores_family->Add({{kLabelKey, kLabelValue}});
+
+      kCounter = factory->NewCounterFamily("test_counter","test")->Add(
+                                     {{kLabelKey, kLabelValue}});
     } catch (const std::exception& e) {
       std::cerr << e.what() << '\n';
     }
   }
   void Run() {
-    for (double score : kObserveScores) {
-      kScoresMetric->Observe(score);
+    auto stop_time =
+        std::chrono::system_clock::now() ;
+        // stop_time += std::chrono::minutes(10);
+    while (true) {
+      for (double score : kObserveScores) {
+        kScoresMetric->Observe(score);
+        kCounter->Increment();
+        std::chrono::milliseconds duration(500);
+        std::this_thread::sleep_for(duration);
+      }
+      if (std::chrono::system_clock::now() > stop_time) {
+        break;
+      }
     }
   }
 };
