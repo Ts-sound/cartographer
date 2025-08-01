@@ -99,7 +99,7 @@ class Algorithm {
   void Run() {
     auto stop_time =
         std::chrono::system_clock::now() ;
-        // stop_time += std::chrono::minutes(10);
+        stop_time += std::chrono::minutes(20);
     while (true) {
       for (double score : kObserveScores) {
         kScoresMetric->Observe(score);
