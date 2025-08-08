@@ -1,6 +1,7 @@
 {
     "todo-tree.general.rootFolder": "${workspaceFolder}/0.study/",
     "markdown-preview-enhanced.plantumlJarPath": "/root/tong/plantuml-1.2025.4.jar",
+    "plantuml.jar": "${workspaceFolder}0.study/assets/plantuml-1.2025.4.jar",
     "files.associations": {
         "chrono": "cpp",
         "condition_variable": "cpp",

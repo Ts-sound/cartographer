@@ -1,0 +1,1973 @@
+@startuml
+
+
+
+
+
+/' Objects '/
+
+namespace cartographer {
+	namespace mapping {
+		class AccelerationCostFunction3D {
+			-AccelerationCostFunction3D(const double scaling_factor, const Eigen::Vector3d& delta_velocity_imu_frame, const double first_delta_time_seconds, const double second_delta_time_seconds)
+			-{static} ToEigen(const T* const quaternion) : Eigen::Quaternion<T>
+			+operator()(const T* const middle_rotation, const T* const start_position, const T* const middle_position, const T* const end_position, const T* const gravity_constant, const T* const imu_calibration, T* residual) : bool {query}
+			+{static} CreateAutoDiffCostFunction(const double scaling_factor, const Eigen::Vector3d& delta_velocity_imu_frame, const double first_delta_time_seconds, const double second_delta_time_seconds) : ceres::CostFunction*
+			-delta_velocity_imu_frame_ : const Eigen::Vector3d
+			-first_delta_time_seconds_ : const double
+			-scaling_factor_ : const double
+			-second_delta_time_seconds_ : const double
+		}
+
+		class ActiveSubmaps2D {
+			+ActiveSubmaps2D(const proto::SubmapsOptions2D& options)
+			-conversion_tables_ : ValueConversionTables
+			-options_ : const proto::SubmapsOptions2D
+			-CreateGrid(const Eigen::Vector2f& origin) : std::unique_ptr<GridInterface>
+			-CreateRangeDataInserter() : std::unique_ptr<RangeDataInserterInterface>
+			-range_data_inserter_ : std::unique_ptr<RangeDataInserterInterface>
+			-submaps_ : std::vector<std::shared_ptr<Submap2D>>
+			+InsertRangeData(const sensor::RangeData& range_data) : std::vector<std::shared_ptr<const Submap2D>>
+			+submaps() : std::vector<std::shared_ptr<const Submap2D>> {query}
+			-AddSubmap(const Eigen::Vector2f& origin) : void
+			-FinishSubmap() : void
+		}
+
+		class ActiveSubmaps3D {
+			+ActiveSubmaps3D(const proto::SubmapsOptions3D& options)
+			-range_data_inserter_ : RangeDataInserter3D
+			-options_ : const proto::SubmapsOptions3D
+			-submaps_ : std::vector<std::shared_ptr<Submap3D>>
+			+InsertData(const sensor::RangeData& range_data_in_local, const Eigen::Quaterniond& local_from_gravity_aligned, const Eigen::VectorXf& rotational_scan_matcher_histogram_in_gravity) : std::vector<std::shared_ptr<const Submap3D>>
+			+submaps() : std::vector<std::shared_ptr<const Submap3D>> {query}
+			-AddSubmap(const transform::Rigid3d& local_submap_pose, int rotational_scan_matcher_histogram_size) : void
+		}
+
+		class CollatedTrajectoryBuilder {
+			+CollatedTrajectoryBuilder(const proto::TrajectoryBuilderOptions& trajectory_options, sensor::CollatorInterface* sensor_collator, int trajectory_id, const std::set<SensorId>& expected_sensor_ids, std::unique_ptr<TrajectoryBuilderInterface> wrapped_trajectory_builder)
+			+~CollatedTrajectoryBuilder()
+			-collate_fixed_frame_ : const bool
+			-collate_landmarks_ : const bool
+			-trajectory_id_ : const int
+			-sensor_collator_ : sensor::CollatorInterface* const
+			-last_logging_time_ : std::chrono::steady_clock::time_point
+			-rate_timers_ : std::map<std::string, common::RateTimer<>>
+			-wrapped_trajectory_builder_ : std::unique_ptr<TrajectoryBuilderInterface>
+			-AddData(std::unique_ptr<sensor::Data> data) : void
+			+AddLocalSlamResultData(std::unique_ptr<mapping::LocalSlamResultData> local_slam_result_data) : void
+			+AddSensorData(const std::string& sensor_id, const sensor::TimedPointCloudData& timed_point_cloud_data) : void
+			+AddSensorData(const std::string& sensor_id, const sensor::ImuData& imu_data) : void
+			+AddSensorData(const std::string& sensor_id, const sensor::OdometryData& odometry_data) : void
+			+AddSensorData(const std::string& sensor_id, const sensor::FixedFramePoseData& fixed_frame_pose_data) : void
+			+AddSensorData(const std::string& sensor_id, const sensor::LandmarkData& landmark_data) : void
+			-HandleCollatedSensorData(const std::string& sensor_id, std::unique_ptr<sensor::Data> data) : void
+		}
+
+		class ConnectedComponents {
+			+ConnectedComponents()
+			-lock_ : absl::Mutex
+			+TransitivelyConnected(int trajectory_id_a, int trajectory_id_b ) LOCKS_EXCLUDED ( lock_) : bool
+			+ConnectionCount(int trajectory_id_a, int trajectory_id_b ) LOCKS_EXCLUDED ( lock_) : int
+			-FindSet(int trajectory_id ) EXCLUSIVE_LOCKS_REQUIRED ( lock_) : int
+			-GUARDED_BY(lock_) : std::map<int , int>forest_
+			-GUARDED_BY(lock_) : std::map<std::pair<int , int>, int>connection_map_
+			+GetComponent(int trajectory_id ) LOCKS_EXCLUDED ( lock_) : std::vector<int>
+			+Components() LOCKS_EXCLUDED ( lock_) : std::vector<std::vector<int>>
+			+Add(int trajectory_id ) LOCKS_EXCLUDED ( lock_) : void
+			+Connect(int trajectory_id_a, int trajectory_id_b ) LOCKS_EXCLUDED ( lock_) : void
+			-Union(int trajectory_id_a, int trajectory_id_b ) EXCLUSIVE_LOCKS_REQUIRED ( lock_) : void
+		}
+
+		class DynamicGrid <template<typename WrappedGrid>> {
+		}
+
+
+		class FlatGrid <template<typename TValueType, int kBits>> {
+			+FlatGrid()
+			+value(const Eigen::Array3i& index) : ValueType {query}
+			+mutable_value(const Eigen::Array3i& index) : ValueType*
+			+{static} grid_size() : int
+		}
+
+		abstract class Grid2D {
+			+Grid2D(const MapLimits& limits, float min_correspondence_cost, float max_correspondence_cost, ValueConversionTables* conversion_tables)
+			+Grid2D(const proto::Grid2D& proto, ValueConversionTables* conversion_tables)
+			-known_cells_box_ : Eigen::AlignedBox2i
+			#known_cells_box() : Eigen::AlignedBox2i& {query}
+			#mutable_known_cells_box() : Eigen::AlignedBox2i*
+			-limits_ : MapLimits
+			+limits() : MapLimits& {query}
+			+{abstract} DrawToSubmapTexture(proto::SubmapQuery::Response::SubmapTexture* const texture, transform::Rigid3d local_pose) : bool {query}
+			+IsKnown(const Eigen::Array2i& cell_index) : bool {query}
+			-value_to_correspondence_cost_table_ : const std::vector<float>*
+			+GetCorrespondenceCost(const Eigen::Array2i& cell_index) : float {query}
+			+GetMaxCorrespondenceCost() : float {query}
+			+GetMinCorrespondenceCost() : float {query}
+			-max_correspondence_cost_ : float
+			-min_correspondence_cost_ : float
+			+{abstract} GetGridType() : int {query}
+			#ToFlatIndex(const Eigen::Array2i& cell_index) : int {query}
+			+ToProto() : proto::Grid2D {query}
+			+{abstract} ComputeCroppedGrid() : std::unique_ptr<Grid2D> {query}
+			-update_indices_ : std::vector<int>
+			#update_indices() : std::vector<int>& {query}
+			#mutable_update_indices() : std::vector<int>*
+			-correspondence_cost_cells_ : std::vector<uint16>
+			#correspondence_cost_cells() : std::vector<uint16>& {query}
+			#mutable_correspondence_cost_cells() : std::vector<uint16>*
+			+ComputeCroppedLimits(Eigen::Array2i* const offset, CellLimits* const limits) : void {query}
+			+FinishUpdate() : void
+			+GrowLimits(const Eigen::Vector2f& point) : void
+			#GrowLimits(const Eigen::Vector2f& point, const std::vector<std::vector<uint16>*>& grids, const std::vector<uint16>& grids_unknown_cell_values) : void
+		}
+
+		class GridInterface {
+			+~GridInterface()
+		}
+
+		class HybridGrid {
+			+HybridGrid(const float resolution)
+			+HybridGrid(const proto::HybridGrid& proto)
+			+ApplyLookupTable(const Eigen::Array3i& index, const std::vector<uint16>& table) : bool
+			+IsKnown(const Eigen::Array3i& index) : bool {query}
+			+GetProbability(const Eigen::Array3i& index) : float {query}
+			+ToProto() : proto::HybridGrid {query}
+			-update_indices_ : std::vector<ValueType*>
+			+FinishUpdate() : void
+			+SetProbability(const Eigen::Array3i& index, const float probability) : void
+		}
+
+		class HybridGridBase <template<typename ValueType>> {
+			+HybridGridBase(const float resolution)
+			+GetCellIndex(const Eigen::Vector3f& point) : Eigen::Array3i {query}
+			+{static} GetOctant(const int i) : Eigen::Array3i
+			+GetCenterOfCell(const Eigen::Array3i& index) : Eigen::Vector3f {query}
+			+begin() : Iterator {query}
+			+end() : Iterator {query}
+			-resolution_ : const float
+			+resolution() : float {query}
+		}
+
+		class ImuBasedPoseExtrapolator {
+			+ImuBasedPoseExtrapolator(const proto::ImuBasedPoseExtrapolatorOptions& options)
+			+~ImuBasedPoseExtrapolator()
+			+EstimateGravityOrientation(common::Time time) : Eigen::Quaterniond
+			+ExtrapolatePosesWithGravity(const std::vector<common::Time>& times) : ExtrapolationResult
+			-HasOdometryData() : bool {query}
+			-HasOdometryDataForTime(const common::Time& first_time) : bool {query}
+			-num_iterations_hist_ : common::Histogram
+			+GetLastExtrapolatedTime() : common::Time {query}
+			+GetLastPoseTime() : common::Time {query}
+			-last_extrapolated_time_ : common::Time
+			-solver_options_ : const ceres::Solver::Options
+			-options_ : const proto::ImuBasedPoseExtrapolatorOptions
+			-previous_solution_ : std::deque<::cartographer::transform::TimestampedTransform>
+			-timed_pose_queue_ : std::deque<::cartographer::transform::TimestampedTransform>
+			-imu_data_ : std::deque<sensor::ImuData>
+			-odometry_data_ : std::deque<sensor::OdometryData>
+			+{static} InitializeWithImu(const proto::ImuBasedPoseExtrapolatorOptions& options, const std::vector<sensor::ImuData>& imu_data, const std::vector<transform::TimestampedTransform>& initial_poses) : std::unique_ptr<PoseExtrapolatorInterface>
+			-InterpolatePoses(const::cartographer::transform::TimestampedTransform& start, const::cartographer::transform::TimestampedTransform& end, const std::vector<common::Time>::const_iterator times_begin, const std::vector<common::Time>::const_iterator times_end) : std::vector<transform::Rigid3f>
+			-CalculateOdometryBetweenNodes(const transform::Rigid3d& first_node_odometry, const transform::Rigid3d& second_node_odometry) : transform::Rigid3d {query}
+			+ExtrapolatePose(common::Time time) : transform::Rigid3d
+			-InterpolateOdometry(const common::Time& first_time) : transform::Rigid3d {query}
+			-gravity_from_local_ : transform::Rigid3d
+			+AddImuData(const sensor::ImuData& imu_data) : void
+			+AddOdometryData(const sensor::OdometryData& odometry_data) : void
+			+AddPose(common::Time time, const transform::Rigid3d& pose) : void
+			-TrimDequeData(std::deque<T>* data) : void
+			-TrimImuData() : void
+			-TrimOdometryData() : void
+		}
+
+		class ImuTracker {
+			+ImuTracker(double imu_gravity_time_constant, common::Time time)
+			+orientation() : Eigen::Quaterniond {query}
+			-orientation_ : Eigen::Quaterniond
+			-gravity_vector_ : Eigen::Vector3d
+			-imu_angular_velocity_ : Eigen::Vector3d
+			-last_linear_acceleration_time_ : common::Time
+			+time() : common::Time {query}
+			-time_ : common::Time
+			-imu_gravity_time_constant_ : const double
+			+AddImuAngularVelocityObservation(const Eigen::Vector3d& imu_angular_velocity) : void
+			+AddImuLinearAccelerationObservation(const Eigen::Vector3d& imu_linear_acceleration) : void
+			+Advance(common::Time time) : void
+		}
+
+		class IntensityHybridGrid {
+			+IntensityHybridGrid(const float resolution)
+			+GetIntensity(const Eigen::Array3i& index) : float {query}
+			+AddIntensity(const Eigen::Array3i& index, const float intensity) : void
+		}
+
+		class LocalSlamResult2D {
+			+LocalSlamResult2D(const std::string& sensor_id, const mapping::proto::LocalSlamResultData local_slam_result_data, SubmapController<mapping::Submap2D>* submap_controller)
+			-submap_controller_ : SubmapController<mapping::Submap2D>*
+			-local_slam_result_data_ : const mapping::proto::LocalSlamResultData
+			-sensor_id_ : const std::string
+			+AddToPoseGraph(int trajectory_id, PoseGraph* pose_graph) : void {query}
+			+AddToTrajectoryBuilder(TrajectoryBuilderInterface* const trajectory_builder) : void
+		}
+
+		class LocalSlamResult3D {
+			+LocalSlamResult3D(const std::string& sensor_id, const mapping::proto::LocalSlamResultData local_slam_result_data, SubmapController<mapping::Submap3D>* submap_controller)
+			-submap_controller_ : SubmapController<mapping::Submap3D>*
+			-local_slam_result_data_ : const mapping::proto::LocalSlamResultData
+			-sensor_id_ : const std::string
+			+AddToPoseGraph(int trajectory_id, PoseGraph* pose_graph) : void {query}
+			+AddToTrajectoryBuilder(TrajectoryBuilderInterface* const trajectory_builder) : void
+		}
+
+		abstract class LocalSlamResultData {
+			+LocalSlamResultData(const std::string& sensor_id, common::Time time)
+			+GetTime() : common::Time {query}
+			-time_ : common::Time
+			+{abstract} AddToPoseGraph(int trajectory_id, PoseGraph* pose_graph) : void {query}
+		}
+
+		class LocalTrajectoryBuilder2D {
+			+LocalTrajectoryBuilder2D(const proto::LocalTrajectoryBuilderOptions2D& options, const std::vector<std::string>& expected_range_sensor_ids)
+			+~LocalTrajectoryBuilder2D()
+			-active_submaps_ : ActiveSubmaps2D
+			-motion_filter_ : MotionFilter
+			-range_data_collator_ : RangeDataCollator
+			-last_sensor_time_ : absl::optional<common::Time>
+			-last_thread_cpu_time_seconds_ : absl::optional<double>
+			-last_wall_time_ : absl::optional<std::chrono::steady_clock::time_point>
+			-options_ : const proto::LocalTrajectoryBuilderOptions2D
+			-num_accumulated_ : int
+			-ceres_scan_matcher_ : scan_matching::CeresScanMatcher2D
+			-real_time_correlative_scan_matcher_ : scan_matching::RealTimeCorrelativeScanMatcher2D
+			-TransformToGravityAlignedFrameAndFilter(const transform::Rigid3f& transform_to_gravity_aligned_frame, const sensor::RangeData& range_data) : sensor::RangeData {query}
+			-accumulated_range_data_ : sensor::RangeData
+			-InsertIntoSubmap(common::Time time, const sensor::RangeData& range_data_in_local, const sensor::PointCloud& filtered_gravity_aligned_point_cloud, const transform::Rigid3d& pose_estimate, const Eigen::Quaterniond& gravity_alignment) : std::unique_ptr<InsertionResult>
+			-AddAccumulatedRangeData(common::Time time, const sensor::RangeData& gravity_aligned_range_data, const transform::Rigid3d& gravity_alignment, const absl::optional<common::Duration>& sensor_duration) : std::unique_ptr<MatchingResult>
+			+AddRangeData(const std::string& sensor_id, const sensor::TimedPointCloudData& range_data) : std::unique_ptr<MatchingResult>
+			-extrapolator_ : std::unique_ptr<PoseExtrapolator>
+			-ScanMatch(common::Time time, const transform::Rigid2d& pose_prediction, const sensor::PointCloud& filtered_gravity_aligned_point_cloud) : std::unique_ptr<transform::Rigid2d>
+			+AddImuData(const sensor::ImuData& imu_data) : void
+			+AddOdometryData(const sensor::OdometryData& odometry_data) : void
+			-InitializeExtrapolator(common::Time time) : void
+			+{static} RegisterMetrics(metrics::FamilyFactory* family_factory) : void
+		}
+
+		class LocalTrajectoryBuilder3D {
+			+LocalTrajectoryBuilder3D(const mapping::proto::LocalTrajectoryBuilderOptions3D& options, const std::vector<std::string>& expected_range_sensor_ids)
+			+~LocalTrajectoryBuilder3D()
+			-range_data_collator_ : RangeDataCollator
+			-last_sensor_time_ : absl::optional<common::Time>
+			-last_thread_cpu_time_seconds_ : absl::optional<double>
+			-last_wall_time_ : absl::optional<std::chrono::steady_clock::time_point>
+			-options_ : const mapping::proto::LocalTrajectoryBuilderOptions3D
+			-num_accumulated_ : int
+			-active_submaps_ : mapping::ActiveSubmaps3D
+			-motion_filter_ : mapping::MotionFilter
+			-InsertIntoSubmap(common::Time time, const sensor::RangeData& filtered_range_data_in_local, const sensor::RangeData& filtered_range_data_in_tracking, const sensor::PointCloud& high_resolution_point_cloud_in_tracking, const sensor::PointCloud& low_resolution_point_cloud_in_tracking, const transform::Rigid3d& pose_estimate, const Eigen::Quaterniond& gravity_alignment) : std::unique_ptr<InsertionResult>
+			-AddAccumulatedRangeData(common::Time time, const sensor::RangeData& filtered_range_data_in_tracking, const absl::optional<common::Duration>& sensor_duration, const transform::Rigid3d& pose_prediction, const Eigen::Quaterniond& gravity_alignment) : std::unique_ptr<MatchingResult>
+			+AddRangeData(const std::string& sensor_id, const sensor::TimedPointCloudData& range_data) : std::unique_ptr<MatchingResult>
+			-extrapolator_ : std::unique_ptr<mapping::PoseExtrapolatorInterface>
+			-ceres_scan_matcher_ : std::unique_ptr<scan_matching::CeresScanMatcher3D>
+			-real_time_correlative_scan_matcher_ : std::unique_ptr<scan_matching::RealTimeCorrelativeScanMatcher3D>
+			-ScanMatch(const transform::Rigid3d& pose_prediction, const sensor::PointCloud& low_resolution_point_cloud_in_tracking, const sensor::PointCloud& high_resolution_point_cloud_in_tracking) : std::unique_ptr<transform::Rigid3d>
+			-accumulated_point_cloud_origin_data_ : std::vector<sensor::TimedPointCloudOriginData>
+			+AddImuData(const sensor::ImuData& imu_data) : void
+			+AddOdometryData(const sensor::OdometryData& odometry_data) : void
+			+{static} RegisterMetrics(metrics::FamilyFactory* family_factory) : void
+		}
+
+		class MapBuilder {
+			+MapBuilder(const proto::MapBuilderOptions& options)
+			+~MapBuilder()
+			+SerializeStateToFile(bool include_unfinished_submaps, const std::string& filename) : bool
+			-thread_pool_ : common::ThreadPool
+			-options_ : const proto::MapBuilderOptions
+			+AddTrajectoryBuilder(const std::set<SensorId>& expected_sensor_ids, const proto::TrajectoryBuilderOptions& trajectory_options, LocalSlamResultCallback local_slam_result_callback) : int
+			+AddTrajectoryForDeserialization(const proto::TrajectoryBuilderOptionsWithSensorIds& options_with_sensor_ids_proto) : int
+			+num_trajectory_builders() : int {query}
+			+pose_graph() : mapping::PoseGraphInterface*
+			+GetTrajectoryBuilder(int trajectory_id) : mapping::TrajectoryBuilderInterface* {query}
+			+LoadState(io::ProtoStreamReaderInterface* reader, bool load_frozen_state) : std::map<int , int>
+			+LoadStateFromFile(const std::string& filename, const bool load_frozen_state) : std::map<int , int>
+			+SubmapToProto(const SubmapId& submap_id, proto::SubmapQuery::Response* response) : std::string
+			-pose_graph_ : std::unique_ptr<PoseGraph>
+			-sensor_collator_ : std::unique_ptr<sensor::CollatorInterface>
+			-all_trajectory_builder_options_ : std::vector<proto::TrajectoryBuilderOptionsWithSensorIds>
+			+GetAllTrajectoryBuilderOptions() : std::vector<proto::TrajectoryBuilderOptionsWithSensorIds>& {query}
+			-trajectory_builders_ : std::vector<std::unique_ptr<mapping::TrajectoryBuilderInterface>>
+			+FinishTrajectory(int trajectory_id) : void
+			+SerializeState(bool include_unfinished_submaps, io::ProtoStreamWriterInterface* writer) : void
+		}
+
+		abstract class MapBuilderInterface {
+			+MapBuilderInterface()
+			+~MapBuilderInterface()
+			+{abstract} SerializeStateToFile(bool include_unfinished_submaps, const std::string& filename) : bool
+			+{abstract} AddTrajectoryBuilder(const std::set<SensorId>& expected_sensor_ids, const proto::TrajectoryBuilderOptions& trajectory_options, LocalSlamResultCallback local_slam_result_callback) : int
+			+{abstract} AddTrajectoryForDeserialization(const proto::TrajectoryBuilderOptionsWithSensorIds& options_with_sensor_ids_proto) : int
+			+{abstract} num_trajectory_builders() : int {query}
+			+{abstract} pose_graph() : mapping::PoseGraphInterface*
+			+{abstract} GetTrajectoryBuilder(int trajectory_id) : mapping::TrajectoryBuilderInterface* {query}
+			+{abstract} LoadState(io::ProtoStreamReaderInterface* reader, bool load_frozen_state) : std::map<int , int>
+			+{abstract} LoadStateFromFile(const std::string& filename, bool load_frozen_state) : std::map<int , int>
+			+{abstract} SubmapToProto(const SubmapId& submap_id, proto::SubmapQuery::Response* response) : std::string
+			+{abstract} GetAllTrajectoryBuilderOptions() : std::vector<proto::TrajectoryBuilderOptionsWithSensorIds>& {query}
+			+{abstract} FinishTrajectory(int trajectory_id) : void
+			+{abstract} SerializeState(bool include_unfinished_submaps, io::ProtoStreamWriterInterface* writer) : void
+		}
+
+		class MapById <template<typename IdType, typename DataType>> {
+			+BeginOfTrajectory(const int trajectory_id) : ConstIterator {query}
+			+EndOfTrajectory(const int trajectory_id) : ConstIterator {query}
+			+begin() : ConstIterator {query}
+			+end() : ConstIterator {query}
+			+find(const IdType& id) : ConstIterator {query}
+			+lower_bound(const int trajectory_id, const common::Time time) : ConstIterator {query}
+			+at(const IdType& id) : DataType& {query}
+			+at(const IdType& id) : DataType&
+			+Append(const int trajectory_id, const DataType& data) : IdType
+			+trajectory(const int trajectory_id) : Range<ConstIterator> {query}
+			+trajectory_ids() : Range<ConstTrajectoryIterator> {query}
+			+Contains(const IdType& id) : bool {query}
+			+empty() : bool {query}
+			-{static} GetIndex(const NodeId& id) : int
+			-{static} GetIndex(const SubmapId& id) : int
+			+SizeOfTrajectoryOrZero(const int trajectory_id) : size_t {query}
+			+size() : size_t {query}
+			-trajectories_ : std::map<int, MapByIndex>
+			+Insert(const IdType& id, const DataType& data) : void
+			+Trim(const IdType& id) : void
+		}
+
+		class MapLimits {
+			+MapLimits(const double resolution, const Eigen::Vector2d& max, const CellLimits& cell_limits)
+			+MapLimits(const proto::MapLimits& map_limits)
+			-cell_limits_ : CellLimits
+			+cell_limits() : CellLimits& {query}
+			+GetCellIndex(const Eigen::Vector2f& point) : Eigen::Array2i {query}
+			-max_ : Eigen::Vector2d
+			+max() : Eigen::Vector2d& {query}
+			+GetCellCenter(const Eigen::Array2i cell_index) : Eigen::Vector2f {query}
+			+Contains(const Eigen::Array2i& cell_index) : bool {query}
+			+resolution() : double {query}
+			-resolution_ : double
+		}
+
+		class MotionFilter {
+			+MotionFilter(const proto::MotionFilterOptions& options)
+			+IsSimilar(common::Time time, const transform::Rigid3d& pose) : bool
+			-last_time_ : common::Time
+			-options_ : const proto::MotionFilterOptions
+			-num_different_ : int
+			-num_total_ : int
+			-last_pose_ : transform::Rigid3d
+		}
+
+		class NestedGrid <template<typename WrappedGrid, int kBits>> {
+		}
+
+
+		class OverlappingSubmapsTrimmer2D {
+			+OverlappingSubmapsTrimmer2D(unsigned short int fresh_submaps_count, double min_covered_area, unsigned short int min_added_submaps_count)
+			+~OverlappingSubmapsTrimmer2D()
+			+IsFinished() : bool
+			-finished_ : bool
+			-min_covered_area_ : const double
+			-current_submap_count_ : unsigned short int
+			-fresh_submaps_count_ : unsigned short int
+			-min_added_submaps_count_ : unsigned short int
+			+Trim(Trimmable* pose_graph) : void
+		}
+
+		class PoseExtrapolator {
+			+PoseExtrapolator(common::Duration pose_queue_duration, double imu_gravity_time_constant)
+			+EstimateGravityOrientation(common::Time time) : Eigen::Quaterniond
+			-ExtrapolateRotation(common::Time time, ImuTracker* imu_tracker) : Eigen::Quaterniond {query}
+			-ExtrapolateTranslation(common::Time time) : Eigen::Vector3d
+			-angular_velocity_from_odometry_ : Eigen::Vector3d
+			-angular_velocity_from_poses_ : Eigen::Vector3d
+			-linear_velocity_from_odometry_ : Eigen::Vector3d
+			-linear_velocity_from_poses_ : Eigen::Vector3d
+			+ExtrapolatePosesWithGravity(const std::vector<common::Time>& times) : ExtrapolationResult
+			-cached_extrapolated_pose_ : TimedPose
+			+GetLastExtrapolatedTime() : common::Time {query}
+			+GetLastPoseTime() : common::Time {query}
+			-pose_queue_duration_ : const common::Duration
+			-gravity_time_constant_ : const double
+			-timed_pose_queue_ : std::deque<TimedPose>
+			-imu_data_ : std::deque<sensor::ImuData>
+			-odometry_data_ : std::deque<sensor::OdometryData>
+			-extrapolation_imu_tracker_ : std::unique_ptr<ImuTracker>
+			-imu_tracker_ : std::unique_ptr<ImuTracker>
+			-odometry_imu_tracker_ : std::unique_ptr<ImuTracker>
+			+{static} InitializeWithImu(common::Duration pose_queue_duration, double imu_gravity_time_constant, const sensor::ImuData& imu_data) : std::unique_ptr<PoseExtrapolator>
+			+ExtrapolatePose(common::Time time) : transform::Rigid3d
+			+AddImuData(const sensor::ImuData& imu_data) : void
+			+AddOdometryData(const sensor::OdometryData& odometry_data) : void
+			+AddPose(common::Time time, const transform::Rigid3d& pose) : void
+			-AdvanceImuTracker(common::Time time, ImuTracker* imu_tracker) : void {query}
+			-TrimImuData() : void
+			-TrimOdometryData() : void
+			-UpdateVelocitiesFromPoses() : void
+		}
+
+		abstract class PoseExtrapolatorInterface {
+			#PoseExtrapolatorInterface()
+			+~PoseExtrapolatorInterface()
+			+{abstract} EstimateGravityOrientation(common::Time time) : Eigen::Quaterniond
+			+{abstract} ExtrapolatePosesWithGravity(const std::vector<common::Time>& times) : ExtrapolationResult
+			+{abstract} GetLastExtrapolatedTime() : common::Time {query}
+			+{abstract} GetLastPoseTime() : common::Time {query}
+			+{static} CreateWithImuData(const proto::PoseExtrapolatorOptions& options, const std::vector<sensor::ImuData>& imu_data, const std::vector<transform::TimestampedTransform>& initial_poses) : std::unique_ptr<PoseExtrapolatorInterface>
+			+{abstract} ExtrapolatePose(common::Time time) : transform::Rigid3d
+			+{abstract} AddImuData(const sensor::ImuData& imu_data) : void
+			+{abstract} AddOdometryData(const sensor::OdometryData& odometry_data) : void
+			+{abstract} AddPose(common::Time time, const transform::Rigid3d& pose) : void
+		}
+
+		abstract class PoseGraph {
+			+PoseGraph()
+			+~PoseGraph()
+			+ToProto(bool include_unfinished_submaps) : proto::PoseGraph {query}
+			+{abstract} GetFixedFramePoseData() : sensor::MapByTime<sensor::FixedFramePoseData> {query}
+			+{abstract} GetImuData() : sensor::MapByTime<sensor::ImuData> {query}
+			+{abstract} GetOdometryData() : sensor::MapByTime<sensor::OdometryData> {query}
+			+{abstract} GetLandmarkNodes() : std::map<std::string , PoseGraph::LandmarkNode> {query}
+			+{abstract} GetConnectedTrajectories() : std::vector<std::vector<int>> {query}
+			+{abstract} AddFixedFramePoseData(int trajectory_id, const sensor::FixedFramePoseData& fixed_frame_pose_data) : void
+			+{abstract} AddImuData(int trajectory_id, const sensor::ImuData& imu_data) : void
+			+{abstract} AddLandmarkData(int trajectory_id, const sensor::LandmarkData& landmark_data) : void
+			+{abstract} AddNodeFromProto(const transform::Rigid3d& global_pose, const proto::Node& node) : void
+			+{abstract} AddNodeToSubmap(const NodeId& node_id, const SubmapId& submap_id) : void
+			+{abstract} AddOdometryData(int trajectory_id, const sensor::OdometryData& odometry_data) : void
+			+{abstract} AddSerializedConstraints(const std::vector<Constraint>& constraints) : void
+			+{abstract} AddSubmapFromProto(const transform::Rigid3d& global_pose, const proto::Submap& submap) : void
+			+{abstract} AddTrimmer(std::unique_ptr<PoseGraphTrimmer> trimmer) : void
+			+{abstract} FinishTrajectory(int trajectory_id) : void
+			+{abstract} FreezeTrajectory(int trajectory_id) : void
+			+{abstract} SetInitialTrajectoryPose(int from_trajectory_id, int to_trajectory_id, const transform::Rigid3d& pose, const common::Time time) : void
+			+{abstract} SetTrajectoryDataFromProto(const mapping::proto::TrajectoryData& data) : void
+		}
+
+		abstract class PoseGraph2D {
+			+PoseGraph2D(const proto::PoseGraphOptions& options, std::unique_ptr<optimization::OptimizationProblem2D> optimization_problem, common::ThreadPool* thread_pool)
+			+~PoseGraph2D()
+			-global_slam_optimization_callback_ : GlobalSlamOptimizationCallback
+			+GetTrajectoryNodes() const override LOCKS_EXCLUDED ( mutex_) : MapById<NodeId , TrajectoryNode>
+			+GetTrajectoryNodePoses() const override LOCKS_EXCLUDED ( mutex_) : MapById<NodeId , TrajectoryNodePose>
+			+GetAllSubmapData() const LOCKS_EXCLUDED ( mutex_) : MapById<SubmapId , PoseGraphInterface::SubmapData>
+			-GetSubmapDataUnderLock() const EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : MapById<SubmapId , PoseGraphInterface::SubmapData>
+			+GetAllSubmapPoses() const LOCKS_EXCLUDED ( mutex_) : MapById<SubmapId , SubmapPose>
+			+AddNode(std::shared_ptr<const TrajectoryNode::Data> constant_data, int trajectory_id, const std::vector<std::shared_ptr<const Submap2D>>& insertion_submaps ) LOCKS_EXCLUDED ( mutex_) : NodeId
+			-AppendNode(std::shared_ptr<const TrajectoryNode::Data> constant_data, int trajectory_id, const std::vector<std::shared_ptr<const Submap2D>>& insertion_submaps, const transform::Rigid3d& optimized_pose ) LOCKS_EXCLUDED ( mutex_) : NodeId
+			-GUARDED_BY(mutex_) : PoseGraphData data_
+			+GetSubmapData(const SubmapId& submap_id ) const LOCKS_EXCLUDED ( mutex_) : PoseGraphInterface::SubmapData
+			-GetSubmapDataUnderLock(const SubmapId& submap_id ) const EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : SubmapData
+			-conversion_tables_ : ValueConversionTables
+			-ComputeConstraintsForNode(const NodeId& node_id, std::vector<std::shared_ptr<const Submap2D>> insertion_submaps, bool newly_finished_submap ) LOCKS_EXCLUDED ( mutex_) : WorkItem::Result
+			-work_queue_mutex_ : absl::Mutex
+			-GUARDED_BY(mutex_) : absl::flat_hash_map<int , std::unique_ptr<common::FixedRatioSampler>>global_localization_samplers_
+			-CanAddWorkItemModifying(int trajectory_id ) EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : bool
+			+IsTrajectoryFinished(int trajectory_id ) const override EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : bool
+			+IsTrajectoryFrozen(int trajectory_id ) const override EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : bool
+			-thread_pool_ : common::ThreadPool* const
+			-GetLatestNodeTime(const NodeId& node_id, const SubmapId& submap_id ) const EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : common::Time
+			-options_ : const proto::PoseGraphOptions
+			-constraint_builder_ : constraints::ConstraintBuilder2D
+			-{abstract} GUARDED_BY(mutex_) : int num_nodes_since_last_loop_closure_
+			-mutex_ : mutable absl::Mutex
+			+GetFixedFramePoseData() const override LOCKS_EXCLUDED ( mutex_) : sensor::MapByTime<sensor::FixedFramePoseData>
+			+GetImuData() const override LOCKS_EXCLUDED ( mutex_) : sensor::MapByTime<sensor::ImuData>
+			+GetOdometryData() const override LOCKS_EXCLUDED ( mutex_) : sensor::MapByTime<sensor::OdometryData>
+			+GetTrajectoryData() const override LOCKS_EXCLUDED ( mutex_) : std::map<int , TrajectoryData>
+			+GetTrajectoryStates() const override LOCKS_EXCLUDED ( mutex_) : std::map<int , TrajectoryState>
+			+GetLandmarkNodes() const override LOCKS_EXCLUDED ( mutex_) : std::map<std::string , PoseGraph::LandmarkNode>
+			+GetLandmarkPoses() const override LOCKS_EXCLUDED ( mutex_) : std::map<std::string , transform::Rigid3d>
+			-GUARDED_BY(work_queue_mutex_) : std::unique_ptr<WorkQueue>work_queue_
+			-optimization_problem_ : std::unique_ptr<optimization::OptimizationProblem2D>
+			+constraints() const override LOCKS_EXCLUDED ( mutex_) : std::vector<Constraint>
+			-InitializeGlobalSubmapPoses(int trajectory_id, const common::Time time, const std::vector<std::shared_ptr<const Submap2D>>& insertion_submaps ) EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : std::vector<SubmapId>
+			-GUARDED_BY(mutex_) : std::vector<std::unique_ptr<PoseGraphTrimmer>>trimmers_
+			+GetConnectedTrajectories() const override LOCKS_EXCLUDED ( mutex_) : std::vector<std::vector<int>>
+			-ComputeLocalToGlobalTransform(const MapById<SubmapId, optimization::SubmapSpec2D>& global_submap_poses, int trajectory_id ) const EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : transform::Rigid3d
+			+GetInterpolatedGlobalTrajectoryPose(int trajectory_id, const common::Time time ) const EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : transform::Rigid3d
+			+GetLocalToGlobalTransform(int trajectory_id ) const LOCKS_EXCLUDED ( mutex_) : transform::Rigid3d
+			+AddFixedFramePoseData(int trajectory_id, const sensor::FixedFramePoseData& fixed_frame_pose_data ) override LOCKS_EXCLUDED ( mutex_) : void
+			+AddImuData(int trajectory_id, const sensor::ImuData& imu_data ) override LOCKS_EXCLUDED ( mutex_) : void
+			+AddLandmarkData(int trajectory_id, const sensor::LandmarkData& landmark_data ) override LOCKS_EXCLUDED ( mutex_) : void
+			+AddNodeFromProto(const transform::Rigid3d& global_pose, const proto::Node& node) : void
+			+AddNodeToSubmap(const NodeId& node_id, const SubmapId& submap_id) : void
+			+AddOdometryData(int trajectory_id, const sensor::OdometryData& odometry_data ) override LOCKS_EXCLUDED ( mutex_) : void
+			+AddSerializedConstraints(const std::vector<Constraint>& constraints) : void
+			+AddSubmapFromProto(const transform::Rigid3d& global_submap_pose, const proto::Submap& submap) : void
+			-AddTrajectoryIfNeeded(int trajectory_id ) EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : void
+			+AddTrimmer(std::unique_ptr<PoseGraphTrimmer> trimmer) : void
+			-AddWorkItem(const std::function<WorkItem::Result ( )>& work_item ) LOCKS_EXCLUDED ( mutex_ ) LOCKS_EXCLUDED ( work_queue_mutex_) : void
+			-ComputeConstraint(const NodeId& node_id, const SubmapId& submap_id ) LOCKS_EXCLUDED ( mutex_) : void
+			-DeleteTrajectoriesIfNeeded() EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : void
+			+DeleteTrajectory(int trajectory_id) : void
+			-DrainWorkQueue() LOCKS_EXCLUDED ( mutex_ ) LOCKS_EXCLUDED ( work_queue_mutex_) : void
+			+FinishTrajectory(int trajectory_id) : void
+			+FreezeTrajectory(int trajectory_id) : void
+			-HandleWorkQueue(const constraints::ConstraintBuilder2D::Result& result ) LOCKS_EXCLUDED ( mutex_ ) LOCKS_EXCLUDED ( work_queue_mutex_) : void
+			+{static} RegisterMetrics(metrics::FamilyFactory* family_factory) : void
+			+RunFinalOptimization() : void
+			-RunOptimization() LOCKS_EXCLUDED ( mutex_) : void
+			+SetGlobalSlamOptimizationCallback(PoseGraphInterface::GlobalSlamOptimizationCallback callback) : void
+			+SetInitialTrajectoryPose(int from_trajectory_id, int to_trajectory_id, const transform::Rigid3d& pose, const common::Time time ) override LOCKS_EXCLUDED ( mutex_) : void
+			+SetLandmarkPose(const std::string& landmark_id, const transform::Rigid3d& global_pose, const bool frozen) : void
+			+SetTrajectoryDataFromProto(const proto::TrajectoryData& data) : void
+			-UpdateTrajectoryConnectivity(const Constraint& constraint ) EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : void
+			-WaitForAllComputations() LOCKS_EXCLUDED ( mutex_ ) LOCKS_EXCLUDED ( work_queue_mutex_) : void
+		}
+
+		class PoseGraph2D::TrimmingHandle {
+		}
+
+		abstract class PoseGraph3D {
+			+PoseGraph3D(const proto::PoseGraphOptions& options, std::unique_ptr<optimization::OptimizationProblem3D> optimization_problem, common::ThreadPool* thread_pool)
+			+~PoseGraph3D()
+			-global_slam_optimization_callback_ : GlobalSlamOptimizationCallback
+			+GetTrajectoryNodes() const override LOCKS_EXCLUDED ( mutex_) : MapById<NodeId , TrajectoryNode>
+			+GetTrajectoryNodePoses() const override LOCKS_EXCLUDED ( mutex_) : MapById<NodeId , TrajectoryNodePose>
+			+GetAllSubmapData() const LOCKS_EXCLUDED ( mutex_) : MapById<SubmapId , SubmapData>
+			-GetSubmapDataUnderLock() const EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : MapById<SubmapId , SubmapData>
+			+GetAllSubmapPoses() const LOCKS_EXCLUDED ( mutex_) : MapById<SubmapId , SubmapPose>
+			+AddNode(std::shared_ptr<const TrajectoryNode::Data> constant_data, int trajectory_id, const std::vector<std::shared_ptr<const Submap3D>>& insertion_submaps ) LOCKS_EXCLUDED ( mutex_) : NodeId
+			-AppendNode(std::shared_ptr<const TrajectoryNode::Data> constant_data, int trajectory_id, const std::vector<std::shared_ptr<const Submap3D>>& insertion_submaps, const transform::Rigid3d& optimized_pose ) LOCKS_EXCLUDED ( mutex_) : NodeId
+			+GetSubmapData(const SubmapId& submap_id ) const LOCKS_EXCLUDED ( mutex_) : PoseGraph::SubmapData
+			-GetSubmapDataUnderLock(const SubmapId& submap_id ) const EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : PoseGraph::SubmapData
+			-GUARDED_BY(mutex_) : PoseGraphData data_
+			-ComputeConstraintsForNode(const NodeId& node_id, std::vector<std::shared_ptr<const Submap3D>> insertion_submaps, bool newly_finished_submap ) LOCKS_EXCLUDED ( mutex_) : WorkItem::Result
+			-work_queue_mutex_ : absl::Mutex
+			-GUARDED_BY(mutex_) : absl::flat_hash_map<int , std::unique_ptr<common::FixedRatioSampler>>global_localization_samplers_
+			-CanAddWorkItemModifying(int trajectory_id ) EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : bool
+			+IsTrajectoryFinished(int trajectory_id ) const override EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : bool
+			+IsTrajectoryFrozen(int trajectory_id ) const override EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : bool
+			-thread_pool_ : common::ThreadPool* const
+			-GetLatestNodeTime(const NodeId& node_id, const SubmapId& submap_id ) const EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : common::Time
+			-options_ : const proto::PoseGraphOptions
+			-constraint_builder_ : constraints::ConstraintBuilder3D
+			-{abstract} GUARDED_BY(mutex_) : int num_nodes_since_last_loop_closure_
+			-mutex_ : mutable absl::Mutex
+			+GetFixedFramePoseData() const override LOCKS_EXCLUDED ( mutex_) : sensor::MapByTime<sensor::FixedFramePoseData>
+			+GetImuData() const override LOCKS_EXCLUDED ( mutex_) : sensor::MapByTime<sensor::ImuData>
+			+GetOdometryData() const override LOCKS_EXCLUDED ( mutex_) : sensor::MapByTime<sensor::OdometryData>
+			+GetTrajectoryData() : std::map<int , TrajectoryData> {query}
+			+GetTrajectoryStates() const override LOCKS_EXCLUDED ( mutex_) : std::map<int , TrajectoryState>
+			+GetLandmarkNodes() const override LOCKS_EXCLUDED ( mutex_) : std::map<std::string , PoseGraph::LandmarkNode>
+			+GetLandmarkPoses() const override LOCKS_EXCLUDED ( mutex_) : std::map<std::string , transform::Rigid3d>
+			-GUARDED_BY(work_queue_mutex_) : std::unique_ptr<WorkQueue>work_queue_
+			-optimization_problem_ : std::unique_ptr<optimization::OptimizationProblem3D>
+			+constraints() const override LOCKS_EXCLUDED ( mutex_) : std::vector<Constraint>
+			-InitializeGlobalSubmapPoses(int trajectory_id, const common::Time time, const std::vector<std::shared_ptr<const Submap3D>>& insertion_submaps ) EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : std::vector<SubmapId>
+			-GUARDED_BY(mutex_) : std::vector<std::unique_ptr<PoseGraphTrimmer>>trimmers_
+			+GetConnectedTrajectories() const override LOCKS_EXCLUDED ( mutex_) : std::vector<std::vector<int>>
+			-ComputeLocalToGlobalTransform(const MapById<SubmapId, optimization::SubmapSpec3D>& global_submap_poses, int trajectory_id ) const EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : transform::Rigid3d
+			+GetInterpolatedGlobalTrajectoryPose(int trajectory_id, const common::Time time ) const EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : transform::Rigid3d
+			+GetLocalToGlobalTransform(int trajectory_id ) const LOCKS_EXCLUDED ( mutex_) : transform::Rigid3d
+			+AddFixedFramePoseData(int trajectory_id, const sensor::FixedFramePoseData& fixed_frame_pose_data ) override LOCKS_EXCLUDED ( mutex_) : void
+			+AddImuData(int trajectory_id, const sensor::ImuData& imu_data ) override LOCKS_EXCLUDED ( mutex_) : void
+			+AddLandmarkData(int trajectory_id, const sensor::LandmarkData& landmark_data ) override LOCKS_EXCLUDED ( mutex_) : void
+			+AddNodeFromProto(const transform::Rigid3d& global_pose, const proto::Node& node) : void
+			+AddNodeToSubmap(const NodeId& node_id, const SubmapId& submap_id) : void
+			+AddOdometryData(int trajectory_id, const sensor::OdometryData& odometry_data ) override LOCKS_EXCLUDED ( mutex_) : void
+			+AddSerializedConstraints(const std::vector<Constraint>& constraints) : void
+			+AddSubmapFromProto(const transform::Rigid3d& global_submap_pose, const proto::Submap& submap) : void
+			-AddTrajectoryIfNeeded(int trajectory_id ) EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : void
+			+AddTrimmer(std::unique_ptr<PoseGraphTrimmer> trimmer) : void
+			-AddWorkItem(const std::function<WorkItem::Result ( )>& work_item ) LOCKS_EXCLUDED ( mutex_ ) LOCKS_EXCLUDED ( work_queue_mutex_) : void
+			-ComputeConstraint(const NodeId& node_id, const SubmapId& submap_id ) LOCKS_EXCLUDED ( mutex_) : void
+			-DeleteTrajectoriesIfNeeded() EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : void
+			+DeleteTrajectory(int trajectory_id) : void
+			-DrainWorkQueue() LOCKS_EXCLUDED ( mutex_ ) LOCKS_EXCLUDED ( work_queue_mutex_) : void
+			+FinishTrajectory(int trajectory_id) : void
+			+FreezeTrajectory(int trajectory_id) : void
+			-HandleWorkQueue(const constraints::ConstraintBuilder3D::Result& result ) LOCKS_EXCLUDED ( mutex_ ) LOCKS_EXCLUDED ( work_queue_mutex_) : void
+			-LogResidualHistograms() const EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : void
+			+{static} RegisterMetrics(metrics::FamilyFactory* family_factory) : void
+			+RunFinalOptimization() : void
+			-RunOptimization() LOCKS_EXCLUDED ( mutex_) : void
+			+SetGlobalSlamOptimizationCallback(PoseGraphInterface::GlobalSlamOptimizationCallback callback) : void
+			+SetInitialTrajectoryPose(int from_trajectory_id, int to_trajectory_id, const transform::Rigid3d& pose, const common::Time time ) override LOCKS_EXCLUDED ( mutex_) : void
+			+SetLandmarkPose(const std::string& landmark_id, const transform::Rigid3d& global_pose, const bool frozen) : void
+			+SetTrajectoryDataFromProto(const proto::TrajectoryData& data) : void
+			-UpdateTrajectoryConnectivity(const Constraint& constraint ) EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : void
+			#WaitForAllComputations() LOCKS_EXCLUDED ( mutex_ ) LOCKS_EXCLUDED ( work_queue_mutex_) : void
+		}
+
+		class PoseGraph3D::TrimmingHandle {
+		}
+
+		class PoseGraphInterface {
+		}
+
+		abstract class PoseGraphTrimmer {
+			+~PoseGraphTrimmer()
+			+{abstract} IsFinished() : bool
+			+{abstract} Trim(Trimmable* pose_graph) : void
+		}
+
+		class ProbabilityGrid {
+			+ProbabilityGrid(const MapLimits& limits, ValueConversionTables* conversion_tables)
+			+ProbabilityGrid(const proto::Grid2D& proto, ValueConversionTables* conversion_tables)
+			+GetGridType() : GridType {query}
+			-conversion_tables_ : ValueConversionTables*
+			+ApplyLookupTable(const Eigen::Array2i& cell_index, const std::vector<uint16>& table) : bool
+			+DrawToSubmapTexture(proto::SubmapQuery::Response::SubmapTexture* const texture, transform::Rigid3d local_pose) : bool {query}
+			+GetProbability(const Eigen::Array2i& cell_index) : float {query}
+			+ToProto() : proto::Grid2D {query}
+			+ComputeCroppedGrid() : std::unique_ptr<Grid2D> {query}
+			+SetProbability(const Eigen::Array2i& cell_index, const float probability) : void
+		}
+
+		class ProbabilityGridRangeDataInserter2D {
+			+ProbabilityGridRangeDataInserter2D(const proto::ProbabilityGridRangeDataInserterOptions2D& options)
+			-options_ : const proto::ProbabilityGridRangeDataInserterOptions2D
+			-hit_table_ : const std::vector<uint16>
+			-miss_table_ : const std::vector<uint16>
+			+Insert(const sensor::RangeData& range_data, GridInterface* grid) : void {query}
+		}
+
+		class PureLocalizationTrimmer {
+			+PureLocalizationTrimmer(int trajectory_id, int num_submaps_to_keep)
+			+~PureLocalizationTrimmer()
+			+IsFinished() : bool
+			-finished_ : bool
+			-trajectory_id_ : const int
+			-num_submaps_to_keep_ : int
+			+Trim(Trimmable* pose_graph) : void
+		}
+
+		class RangeDataCollator {
+			+RangeDataCollator(const std::vector<std::string>& expected_range_sensor_ids)
+			-current_end_ : common::Time
+			-current_start_ : common::Time
+			-expected_sensor_ids_ : const std::set<std::string>
+			-{static} kDefaultIntensityValue : constexpr static float
+			+AddRangeData(const std::string& sensor_id, sensor::TimedPointCloudData timed_point_cloud_data) : sensor::TimedPointCloudOriginData
+			-CropAndMerge() : sensor::TimedPointCloudOriginData
+			-id_to_pending_data_ : std::map<std::string, sensor::TimedPointCloudData>
+		}
+
+		class RangeDataInserter3D {
+			+RangeDataInserter3D(const proto::RangeDataInserterOptions3D& options)
+			-options_ : const proto::RangeDataInserterOptions3D
+			-hit_table_ : const std::vector<uint16>
+			-miss_table_ : const std::vector<uint16>
+			+Insert(const sensor::RangeData& range_data, HybridGrid* hybrid_grid, IntensityHybridGrid* intensity_hybrid_grid) : void {query}
+		}
+
+		abstract class RangeDataInserterInterface {
+			+~RangeDataInserterInterface()
+			+{abstract} Insert(const sensor::RangeData& range_data, GridInterface* grid) : void {query}
+		}
+
+		class RotationCostFunction3D {
+			-RotationCostFunction3D(const double scaling_factor, const Eigen::Quaterniond& delta_rotation_imu_frame)
+			+operator()(const T* const start_rotation, const T* const end_rotation, const T* const imu_calibration, T* residual) : bool {query}
+			+{static} CreateAutoDiffCostFunction(const double scaling_factor, const Eigen::Quaterniond& delta_rotation_imu_frame) : ceres::CostFunction*
+			-delta_rotation_imu_frame_ : const Eigen::Quaterniond
+			-scaling_factor_ : const double
+		}
+
+		abstract class Submap {
+			+Submap(const transform::Rigid3d& local_submap_pose)
+			+~Submap()
+			+insertion_finished() : bool {query}
+			-insertion_finished_ : bool
+			-local_pose_ : const transform::Rigid3d
+			+num_range_data() : int {query}
+			-num_range_data_ : int
+			+{abstract} ToProto(bool include_grid_data) : proto::Submap {query}
+			+local_pose() : transform::Rigid3d {query}
+			+{abstract} ToResponseProto(const transform::Rigid3d& global_submap_pose, proto::SubmapQuery::Response* response) : void {query}
+			+{abstract} UpdateFromProto(const proto::Submap& proto) : void
+			+set_insertion_finished(bool insertion_finished) : void
+			+set_num_range_data(const int num_range_data) : void
+		}
+
+		class Submap2D {
+			+Submap2D(const Eigen::Vector2f& origin, std::unique_ptr<Grid2D> grid, ValueConversionTables* conversion_tables)
+			+Submap2D(const proto::Submap2D& proto, ValueConversionTables* conversion_tables)
+			+grid() : Grid2D* {query}
+			-conversion_tables_ : ValueConversionTables*
+			+ToProto(bool include_grid_data) : proto::Submap {query}
+			-grid_ : std::unique_ptr<Grid2D>
+			+Finish() : void
+			+InsertRangeData(const sensor::RangeData& range_data, const RangeDataInserterInterface* range_data_inserter) : void
+			+ToResponseProto(const transform::Rigid3d& global_submap_pose, proto::SubmapQuery::Response* response) : void {query}
+			+UpdateFromProto(const proto::Submap& proto) : void
+		}
+
+		class Submap3D {
+			+Submap3D(float high_resolution, float low_resolution, const transform::Rigid3d& local_submap_pose, const Eigen::VectorXf& rotational_scan_matcher_histogram)
+			+Submap3D(const proto::Submap3D& proto)
+			-rotational_scan_matcher_histogram_ : Eigen::VectorXf
+			+rotational_scan_matcher_histogram() : Eigen::VectorXf& {query}
+			+high_resolution_hybrid_grid() : HybridGrid& {query}
+			+low_resolution_hybrid_grid() : HybridGrid& {query}
+			+high_resolution_intensity_hybrid_grid() : IntensityHybridGrid& {query}
+			+ToProto(bool include_probability_grid_data) : proto::Submap {query}
+			-high_resolution_hybrid_grid_ : std::unique_ptr<HybridGrid>
+			-low_resolution_hybrid_grid_ : std::unique_ptr<HybridGrid>
+			-high_resolution_intensity_hybrid_grid_ : std::unique_ptr<IntensityHybridGrid>
+			+Finish() : void
+			+ForgetIntensityHybridGrid() : void
+			+InsertData(const sensor::RangeData& range_data, const RangeDataInserter3D& range_data_inserter, float high_resolution_max_range, const Eigen::Quaterniond& local_from_gravity_aligned, const Eigen::VectorXf& scan_histogram_in_gravity) : void
+			+ToResponseProto(const transform::Rigid3d& global_submap_pose, proto::SubmapQuery::Response* response) : void {query}
+			-UpdateFromProto(const proto::Submap3D& submap_3d) : void
+			+UpdateFromProto(const proto::Submap& proto) : void
+		}
+
+		class TSDF2D {
+			+TSDF2D(const MapLimits& limits, float truncation_distance, float max_weight, ValueConversionTables* conversion_tables)
+			+TSDF2D(const proto::Grid2D& proto, ValueConversionTables* conversion_tables)
+			+GetGridType() : GridType {query}
+			-conversion_tables_ : ValueConversionTables*
+			+CellIsUpdated(const Eigen::Array2i& cell_index) : bool {query}
+			+DrawToSubmapTexture(proto::SubmapQuery::Response::SubmapTexture* const texture, transform::Rigid3d local_pose) : bool {query}
+			+GetTSD(const Eigen::Array2i& cell_index) : float {query}
+			+GetWeight(const Eigen::Array2i& cell_index) : float {query}
+			+ToProto() : proto::Grid2D {query}
+			+GetTSDAndWeight(const Eigen::Array2i& cell_index) : std::pair<float , float> {query}
+			+ComputeCroppedGrid() : std::unique_ptr<Grid2D> {query}
+			-value_converter_ : std::unique_ptr<TSDValueConverter>
+			-weight_cells_ : std::vector<uint16>
+			+GrowLimits(const Eigen::Vector2f& point) : void
+			+SetCell(const Eigen::Array2i& cell_index, const float tsd, const float weight) : void
+		}
+
+		class TSDFRangeDataInserter2D {
+			+TSDFRangeDataInserter2D(const proto::TSDFRangeDataInserterOptions2D& options)
+			-options_ : const proto::TSDFRangeDataInserterOptions2D
+			+Insert(const sensor::RangeData& range_data, GridInterface* grid) : void {query}
+			-InsertHit(const proto::TSDFRangeDataInserterOptions2D& options, const Eigen::Vector2f& hit, const Eigen::Vector2f& origin, float normal, TSDF2D* tsdf) : void {query}
+			-UpdateCell(const Eigen::Array2i& cell, float update_sdf, float update_weight, TSDF2D* tsdf) : void {query}
+		}
+
+		class TSDValueConverter {
+			+TSDValueConverter(float max_tsd, float max_weight, ValueConversionTables* conversion_tables)
+			-value_to_tsd_ : const std::vector<float>*
+			-value_to_weight_ : const std::vector<float>*
+			-ClampTSD(const float tsd) : float {query}
+			-ClampWeight(const float weight) : float {query}
+			+ValueToTSD(unsigned short int value) : float {query}
+			+ValueToWeight(unsigned short int value) : float {query}
+			+getMaxTSD() : float {query}
+			+getMaxWeight() : float {query}
+			+getMinTSD() : float {query}
+			+getMinWeight() : float {query}
+			-max_tsd_ : float
+			-max_weight_ : float
+			-min_tsd_ : float
+			-tsd_resolution_ : float
+			-weight_resolution_ : float
+			-{static} min_weight_ : static constexpr float
+			+TSDToValue(const float tsd) : unsigned short int {query}
+			+WeightToValue(const float weight) : unsigned short int {query}
+			+{static} getUnknownTSDValue() : unsigned short int
+			+{static} getUnknownWeightValue() : unsigned short int
+			+{static} getUpdateMarker() : unsigned short int
+			-{static} unknown_tsd_value_ : unsigned short int
+			-{static} unknown_weight_value_ : unsigned short int
+			-{static} update_marker_ : unsigned short int
+		}
+
+		abstract class TrajectoryBuilderInterface {
+			+TrajectoryBuilderInterface()
+			+~TrajectoryBuilderInterface()
+			+{abstract} AddLocalSlamResultData(std::unique_ptr<mapping::LocalSlamResultData> local_slam_result_data) : void
+			+{abstract} AddSensorData(const std::string& sensor_id, const sensor::TimedPointCloudData& timed_point_cloud_data) : void
+			+{abstract} AddSensorData(const std::string& sensor_id, const sensor::ImuData& imu_data) : void
+			+{abstract} AddSensorData(const std::string& sensor_id, const sensor::OdometryData& odometry_data) : void
+			+{abstract} AddSensorData(const std::string& sensor_id, const sensor::FixedFramePoseData& fixed_frame_pose) : void
+			+{abstract} AddSensorData(const std::string& sensor_id, const sensor::LandmarkData& landmark_data) : void
+		}
+
+		class TrajectoryConnectivityState {
+			+TrajectoryConnectivityState()
+			+TransitivelyConnected(int trajectory_id_a, int trajectory_id_b) : bool {query}
+			+LastConnectionTime(int trajectory_id_a, int trajectory_id_b) : common::Time
+			-connected_components_ : mutable ConnectedComponents
+			-last_connection_time_map_ : std::map<std::pair<int, int>, common::Time>
+			+Components() : std::vector<std::vector<int>> {query}
+			+Add(int trajectory_id) : void
+			+Connect(int trajectory_id_a, int trajectory_id_b, common::Time time) : void
+		}
+
+		abstract class Trimmable {
+			+~Trimmable()
+			+{abstract} GetTrajectoryNodes() : MapById<NodeId , TrajectoryNode>& {query}
+			+{abstract} GetOptimizedSubmapData() : MapById<SubmapId , PoseGraphInterface::SubmapData> {query}
+			+{abstract} IsFinished(int trajectory_id) : bool {query}
+			+{abstract} num_submaps(int trajectory_id) : int {query}
+			+{abstract} GetConstraints() : std::vector<PoseGraphInterface::Constraint>& {query}
+			+{abstract} GetSubmapIds(int trajectory_id) : std::vector<SubmapId> {query}
+			+{abstract} SetTrajectoryState(int trajectory_id, PoseGraphInterface::TrajectoryState state) : void
+			+{abstract} TrimSubmap(const SubmapId& submap_id) : void
+		}
+
+		class ValueConversionTables {
+			-bounds_to_lookup_table_ : std::map<const std::tuple<float, float, float>, std::unique_ptr<const std::vector<float>>>
+			+GetConversionTable(float unknown_result, float lower_bound, float upper_bound) : std::vector<float>*
+		}
+
+		class XYIndexRangeIterator {
+			+XYIndexRangeIterator(const Eigen::Array2i& min_xy_index, const Eigen::Array2i& max_xy_index)
+			+XYIndexRangeIterator(const CellLimits& cell_limits)
+			+operator*() : Eigen :: Array2i&
+			-max_xy_index_ : Eigen::Array2i
+			-min_xy_index_ : Eigen::Array2i
+			-xy_index_ : Eigen::Array2i
+			+begin() : XYIndexRangeIterator
+			+end() : XYIndexRangeIterator
+			+operator++() : XYIndexRangeIterator&
+			+operator!=(const XYIndexRangeIterator& other) : bool {query}
+			+operator==(const XYIndexRangeIterator& other) : bool {query}
+		}
+
+		enum GridType {
+			PROBABILITY_GRID
+			TSDF
+		}
+
+		enum InternalTrajectoryState::DeletionState {
+			NORMAL
+			SCHEDULED_FOR_DELETION
+			WAIT_FOR_DELETION
+		}
+
+		enum PoseGraphInterface::Constraint::Tag {
+			INTER_SUBMAP
+			INTRA_SUBMAP
+		}
+
+		enum PoseGraphInterface::TrajectoryData::TrajectoryState {
+			ACTIVE
+			DELETED
+			FINISHED
+			FROZEN
+		}
+
+		enum SubmapState {
+			kFinished
+			kNoConstraintSearch
+		}
+
+		enum TrajectoryBuilderInterface::SensorId::SensorType {
+			FIXED_FRAME_POSE
+			IMU
+			LANDMARK
+			LOCAL_SLAM_RESULT
+			ODOMETRY
+			RANGE
+		}
+
+		enum WorkItem::Result {
+			kDoNotRunOptimization
+			kRunOptimization
+		}
+
+		class AverageIntensityData {
+			+sum : float
+			+count : int
+		}
+
+		class CellLimits {
+			+CellLimits()
+			+CellLimits(int init_num_x_cells, int init_num_y_cells)
+			+CellLimits(const proto::CellLimits& cell_limits)
+			+num_x_cells : int
+			+num_y_cells : int
+		}
+
+		class ConstantYawQuaternionPlus {
+			+operator()(const T* x, const T* delta, T* x_plus_delta) : bool {query}
+		}
+
+		class ExtrapolatePoseResult <template<typename T>> {
+			+velocity : Eigen::Matrix<T, 3, 1>
+			+pose : transform::Rigid3<T>
+		}
+
+		class Floor {
+			+z : double
+			+timespans : std::vector<Timespan>
+		}
+
+		class IntegrateImuResult <template<typename T>> {
+			+delta_translation : Eigen::Matrix<T, 3, 1>
+			+delta_velocity : Eigen::Matrix<T, 3, 1>
+			+delta_rotation : Eigen::Quaternion<T>
+		}
+
+		class InternalSubmapData {
+			+state : SubmapState
+			+node_ids : std::set<NodeId>
+			+submap : std::shared_ptr<const Submap>
+		}
+
+		class InternalTrajectoryState {
+			+deletion_state : DeletionState
+			+state : PoseGraphInterface::TrajectoryState
+		}
+
+		class LocalTrajectoryBuilder2D::InsertionResult {
+			+constant_data : std::shared_ptr<const TrajectoryNode::Data>
+			+insertion_submaps : std::vector<std::shared_ptr<const Submap2D>>
+		}
+
+		class LocalTrajectoryBuilder2D::MatchingResult {
+			+time : common::Time
+			+range_data_in_local : sensor::RangeData
+			+insertion_result : std::unique_ptr<const InsertionResult>
+			+local_pose : transform::Rigid3d
+		}
+
+		class LocalTrajectoryBuilder3D::InsertionResult {
+			+constant_data : std::shared_ptr<const mapping::TrajectoryNode::Data>
+			+insertion_submaps : std::vector<std::shared_ptr<const mapping::Submap3D>>
+		}
+
+		class LocalTrajectoryBuilder3D::MatchingResult {
+			+time : common::Time
+			+range_data_in_local : sensor::RangeData
+			+insertion_result : std::unique_ptr<const InsertionResult>
+			+local_pose : transform::Rigid3d
+		}
+
+		class MapById::IdDataReference {
+			+id : IdType
+			+data : const DataType&
+		}
+
+		class MapById::MapByIndex {
+			+can_append_ : bool
+			+data_ : std::map<int, DataType>
+		}
+
+		class NodeId {
+			+NodeId(int trajectory_id, int node_index)
+			+operator!=(const NodeId& other) : bool {query}
+			+operator<(const NodeId& other) : bool {query}
+			+operator==(const NodeId& other) : bool {query}
+			+node_index : int
+			+trajectory_id : int
+			+ToProto(proto::NodeId* proto) : void {query}
+		}
+
+		class PoseExtrapolator::TimedPose {
+			+time : common::Time
+			+pose : transform::Rigid3d
+		}
+
+		class PoseExtrapolatorInterface::ExtrapolationResult {
+			+gravity_from_tracking : Eigen::Quaterniond
+			+current_velocity : Eigen::Vector3d
+			+previous_poses : std::vector<transform::Rigid3f>
+			+current_pose : transform::Rigid3d
+		}
+
+		class PoseGraph::InitialTrajectoryPose {
+			+time : common::Time
+			+to_trajectory_id : int
+			+relative_pose : transform::Rigid3d
+		}
+
+		class PoseGraphData {
+			+trajectory_nodes : MapById<NodeId, TrajectoryNode>
+			+submap_data : MapById<SubmapId, InternalSubmapData>
+			+global_submap_poses_2d : MapById<SubmapId, optimization::SubmapSpec2D>
+			+global_submap_poses_3d : MapById<SubmapId, optimization::SubmapSpec3D>
+			+trajectory_connectivity_state : TrajectoryConnectivityState
+			+num_trajectory_nodes : int
+			+trajectories_state : std::map<int, InternalTrajectoryState>
+			+initial_trajectory_poses : std::map<int, PoseGraph::InitialTrajectoryPose>
+			+landmark_nodes : std::map<std::string, PoseGraphInterface::LandmarkNode>
+			+constraints : std::vector<PoseGraphInterface::Constraint>
+		}
+
+		class PoseGraphInterface::Constraint {
+			+node_id : NodeId
+			+pose : Pose
+			+submap_id : SubmapId
+			+tag : Tag
+		}
+
+		class PoseGraphInterface::Constraint::Pose {
+			+rotation_weight : double
+			+translation_weight : double
+			+zbar_ij : transform::Rigid3d
+		}
+
+		class PoseGraphInterface::LandmarkNode {
+			+global_landmark_pose : absl::optional<transform::Rigid3d>
+			+frozen : bool
+			+landmark_observations : std::vector<LandmarkObservation>
+		}
+
+		class PoseGraphInterface::LandmarkNode::LandmarkObservation {
+			+time : common::Time
+			+rotation_weight : double
+			+translation_weight : double
+			+trajectory_id : int
+			+landmark_to_tracking_transform : transform::Rigid3d
+		}
+
+		class PoseGraphInterface::SubmapData {
+			+submap : std::shared_ptr<const Submap>
+			+pose : transform::Rigid3d
+		}
+
+		class PoseGraphInterface::SubmapPose {
+			+version : int
+			+pose : transform::Rigid3d
+		}
+
+		abstract class PoseGraphInterface::TrajectoryData {
+				}
+
+		class SubmapId {
+			+SubmapId(int trajectory_id, int submap_index)
+			+operator!=(const SubmapId& other) : bool {query}
+			+operator<(const SubmapId& other) : bool {query}
+			+operator==(const SubmapId& other) : bool {query}
+			+submap_index : int
+			+trajectory_id : int
+			+ToProto(proto::SubmapId* proto) : void {query}
+		}
+
+		class Timespan {
+			+end : common::Time
+			+start : common::Time
+		}
+
+		class TrajectoryBuilderInterface::InsertionResult {
+			+node_id : NodeId
+			+constant_data : std::shared_ptr<const TrajectoryNode::Data>
+			+insertion_submaps : std::vector<std::shared_ptr<const Submap>>
+		}
+
+		class TrajectoryBuilderInterface::SensorId {
+			+type : SensorType
+			+operator<(SensorId other) : bool {query}
+			+operator==(SensorId other) : bool {query}
+			+id : std::string
+		}
+
+		class TrajectoryNode {
+			+time() : common::Time {query}
+			+constant_data : std::shared_ptr<const Data>
+			+global_pose : transform::Rigid3d
+		}
+
+		class TrajectoryNode::Data {
+			+gravity_alignment : Eigen::Quaterniond
+			+rotational_scan_matcher_histogram : Eigen::VectorXf
+			+time : common::Time
+			+filtered_gravity_aligned_point_cloud : sensor::PointCloud
+			+high_resolution_point_cloud : sensor::PointCloud
+			+low_resolution_point_cloud : sensor::PointCloud
+			+local_pose : transform::Rigid3d
+		}
+
+		class TrajectoryNodePose {
+			+constant_pose_data : absl::optional<ConstantPoseData>
+			+global_pose : transform::Rigid3d
+		}
+
+		class TrajectoryNodePose::ConstantPoseData {
+			+time : common::Time
+			+local_pose : transform::Rigid3d
+		}
+
+		class WorkItem {
+			+function<Result()
+			+time : std::chrono::steady_clock::time_point
+		}
+
+		class YawOnlyQuaternionPlus {
+			+operator()(const T* x, const T* delta, T* x_plus_delta) : bool {query}
+		}
+
+		namespace scan_matching {
+			class CeresScanMatcher2D {
+				+CeresScanMatcher2D(const proto::CeresScanMatcherOptions2D& options)
+				+~CeresScanMatcher2D()
+				-ceres_solver_options_ : ceres::Solver::Options
+				-options_ : const proto::CeresScanMatcherOptions2D
+				+Match(const Eigen::Vector2d& target_translation, const transform::Rigid2d& initial_pose_estimate, const sensor::PointCloud& point_cloud, const Grid2D& grid, transform::Rigid2d* pose_estimate, ceres::Solver::Summary* summary) : void {query}
+			}
+
+			class CeresScanMatcher3D {
+				+CeresScanMatcher3D(const proto::CeresScanMatcherOptions3D& options)
+				-ceres_solver_options_ : ceres::Solver::Options
+				-options_ : const proto::CeresScanMatcherOptions3D
+				+Match(const Eigen::Vector3d& target_translation, const transform::Rigid3d& initial_pose_estimate, const std::vector<PointCloudAndHybridGridsPointers>& point_clouds_and_hybrid_grids, transform::Rigid3d* pose_estimate, ceres::Solver::Summary* summary) : void {query}
+			}
+
+			class FastCorrelativeScanMatcher2D {
+				+FastCorrelativeScanMatcher2D(const Grid2D& grid, const proto::FastCorrelativeScanMatcherOptions2D& options)
+				+~FastCorrelativeScanMatcher2D()
+				-BranchAndBound(const std::vector<DiscreteScan2D>& discrete_scans, const SearchParameters& search_parameters, const std::vector<Candidate2D>& candidates, int candidate_depth, float min_score) : Candidate2D {query}
+				-limits_ : MapLimits
+				+Match(const transform::Rigid2d& initial_pose_estimate, const sensor::PointCloud& point_cloud, float min_score, float* score, transform::Rigid2d* pose_estimate) : bool {query}
+				+MatchFullSubmap(const sensor::PointCloud& point_cloud, float min_score, float* score, transform::Rigid2d* pose_estimate) : bool {query}
+				-MatchWithSearchParameters(SearchParameters search_parameters, const transform::Rigid2d& initial_pose_estimate, const sensor::PointCloud& point_cloud, float min_score, float* score, transform::Rigid2d* pose_estimate) : bool {query}
+				-options_ : const proto::FastCorrelativeScanMatcherOptions2D
+				-precomputation_grid_stack_ : std::unique_ptr<PrecomputationGridStack2D>
+				-ComputeLowestResolutionCandidates(const std::vector<DiscreteScan2D>& discrete_scans, const SearchParameters& search_parameters) : std::vector<Candidate2D> {query}
+				-GenerateLowestResolutionCandidates(const SearchParameters& search_parameters) : std::vector<Candidate2D> {query}
+				-ScoreCandidates(const PrecomputationGrid2D& precomputation_grid, const std::vector<DiscreteScan2D>& discrete_scans, const SearchParameters& search_parameters, std::vector<Candidate2D>* const candidates) : void {query}
+			}
+
+			class FastCorrelativeScanMatcher3D {
+				+FastCorrelativeScanMatcher3D(const HybridGrid& hybrid_grid, const HybridGrid* low_resolution_hybrid_grid, const Eigen::VectorXf* rotational_scan_matcher_histogram, const proto::FastCorrelativeScanMatcherOptions3D& options)
+				+~FastCorrelativeScanMatcher3D()
+				-BranchAndBound(SearchParameters search_parameters, const std::vector<DiscreteScan3D>& discrete_scans, const std::vector<Candidate3D>& candidates, int candidate_depth, float min_score) : Candidate3D {query}
+				-DiscretizeScan(SearchParameters search_parameters, const sensor::PointCloud& point_cloud, const transform::Rigid3f& pose, float rotational_score) : DiscreteScan3D {query}
+				-rotational_scan_matcher_ : RotationalScanMatcher
+				-low_resolution_hybrid_grid_ : const HybridGrid* const
+				-resolution_ : const float
+				-width_in_voxels_ : const int
+				-options_ : const proto::FastCorrelativeScanMatcherOptions3D
+				-precomputation_grid_stack_ : std::unique_ptr<PrecomputationGridStack3D>
+				+Match(const transform::Rigid3d& global_node_pose, const transform::Rigid3d& global_submap_pose, const TrajectoryNode::Data& constant_data, float min_score) : std::unique_ptr<Result> {query}
+				+MatchFullSubmap(const Eigen::Quaterniond& global_node_rotation, const Eigen::Quaterniond& global_submap_rotation, const TrajectoryNode::Data& constant_data, float min_score) : std::unique_ptr<Result> {query}
+				-MatchWithSearchParameters(SearchParameters search_parameters, const transform::Rigid3f& global_node_pose, const transform::Rigid3f& global_submap_pose, const sensor::PointCloud& point_cloud, const Eigen::VectorXf& rotational_scan_matcher_histogram, const Eigen::Quaterniond& gravity_alignment, float min_score) : std::unique_ptr<Result> {query}
+				-ComputeLowestResolutionCandidates(SearchParameters search_parameters, const std::vector<DiscreteScan3D>& discrete_scans) : std::vector<Candidate3D> {query}
+				-GenerateLowestResolutionCandidates(SearchParameters search_parameters, int num_discrete_scans) : std::vector<Candidate3D> {query}
+				-GenerateDiscreteScans(SearchParameters search_parameters, const sensor::PointCloud& point_cloud, const Eigen::VectorXf& rotational_scan_matcher_histogram, const Eigen::Quaterniond& gravity_alignment, const transform::Rigid3f& global_node_pose, const transform::Rigid3f& global_submap_pose) : std::vector<DiscreteScan3D> {query}
+				-GetPoseFromCandidate(const std::vector<DiscreteScan3D>& discrete_scans, const Candidate3D& candidate) : transform::Rigid3f {query}
+				-ScoreCandidates(int depth, const std::vector<DiscreteScan3D>& discrete_scans, std::vector<Candidate3D>* const candidates) : void {query}
+			}
+
+			class IntensityCostFunction3D {
+				-IntensityCostFunction3D(const double scaling_factor, const float intensity_threshold, const sensor::PointCloud& point_cloud, const IntensityHybridGrid& hybrid_grid)
+				-Evaluate(const transform::Rigid3<T>& transform, T* const residual) : bool {query}
+				+operator()(const T* const translation, const T* const rotation, T* const residual) : bool {query}
+				+{static} CreateAutoDiffCostFunction(const double scaling_factor, const float intensity_threshold, const sensor::PointCloud& point_cloud, const IntensityHybridGrid& hybrid_grid) : ceres::CostFunction*
+				-interpolated_grid_ : const InterpolatedIntensityGrid
+				-scaling_factor_ : const double
+				-intensity_threshold_ : const float
+				-point_cloud_ : const sensor::PointCloud&
+			}
+
+			class InterpolatedGrid <template<class HybridGridType>> {
+			}
+
+			class InterpolatedTSDF2D {
+				+InterpolatedTSDF2D(const TSDF2D& grid)
+				-CenterOfLowerPixel(double x, double y) : Eigen::Vector2f {query}
+				-CenterOfLowerPixel(const T& jet_x, const T& jet_y) : Eigen::Vector2f {query}
+				+GetCorrespondenceCost(const T& x, const T& y) : T {query}
+				+GetWeight(const T& x, const T& y) : T {query}
+				-InterpolateBilinear(const T& x, const T& y, float x1, float y1, float x2, float y2, float q11, float q12, float q21, float q22) : T {query}
+				-tsdf_ : const TSDF2D&
+				-ComputeInterpolationDataPoints(const T& x, const T& y, float* x1, float* y1, float* x2, float* y2) : void {query}
+			}
+
+			class OccupiedSpaceCostFunction3D {
+				-OccupiedSpaceCostFunction3D(const double scaling_factor, const sensor::PointCloud& point_cloud, const mapping::HybridGrid& hybrid_grid)
+				-Evaluate(const transform::Rigid3<T>& transform, T* const residual) : bool {query}
+				+operator()(const T* const translation, const T* const rotation, T* const residual) : bool {query}
+				+{static} CreateAutoDiffCostFunction(const double scaling_factor, const sensor::PointCloud& point_cloud, const mapping::HybridGrid& hybrid_grid) : ceres::CostFunction*
+				-interpolated_grid_ : const InterpolatedProbabilityGrid
+				-scaling_factor_ : const double
+				-point_cloud_ : const sensor::PointCloud&
+			}
+
+			class PrecomputationGrid2D {
+				+PrecomputationGrid2D(const Grid2D& grid, const CellLimits& limits, int width, std::vector<float>* reusable_intermediate_grid)
+				-wide_limits_ : const CellLimits
+				-offset_ : const Eigen::Array2i
+				-max_score_ : const float
+				-min_score_ : const float
+				+ToScore(float value) : float {query}
+				+GetValue(const Eigen::Array2i& xy_index) : int {query}
+				-cells_ : std::vector<uint8>
+				-ComputeCellValue(float probability) : unsigned char {query}
+			}
+
+			class PrecomputationGrid3D {
+				+PrecomputationGrid3D(const float resolution)
+				+{static} ToProbability(float value) : float
+			}
+
+			class PrecomputationGridStack2D {
+				+PrecomputationGridStack2D(const Grid2D& grid, const proto::FastCorrelativeScanMatcherOptions2D& options)
+				+Get(int index) : PrecomputationGrid2D&
+				+max_depth() : int {query}
+				-precomputation_grids_ : std::vector<PrecomputationGrid2D>
+			}
+
+			class PrecomputationGridStack3D {
+				+PrecomputationGridStack3D(const HybridGrid& hybrid_grid, const proto::FastCorrelativeScanMatcherOptions3D& options)
+				+Get(int depth) : PrecomputationGrid3D& {query}
+				+max_depth() : int {query}
+				-precomputation_grids_ : std::vector<PrecomputationGrid3D>
+			}
+
+			class RealTimeCorrelativeScanMatcher2D {
+				+RealTimeCorrelativeScanMatcher2D(const proto::RealTimeCorrelativeScanMatcherOptions& options)
+				-options_ : const proto::RealTimeCorrelativeScanMatcherOptions
+				+Match(const transform::Rigid2d& initial_pose_estimate, const sensor::PointCloud& point_cloud, const Grid2D& grid, transform::Rigid2d* pose_estimate) : double {query}
+				-GenerateExhaustiveSearchCandidates(const SearchParameters& search_parameters) : std::vector<Candidate2D> {query}
+				+ScoreCandidates(const Grid2D& grid, const std::vector<DiscreteScan2D>& discrete_scans, const SearchParameters& search_parameters, std::vector<Candidate2D>* candidates) : void {query}
+			}
+
+			class RealTimeCorrelativeScanMatcher3D {
+				+RealTimeCorrelativeScanMatcher3D(const scan_matching::proto::RealTimeCorrelativeScanMatcherOptions& options)
+				-options_ : const proto::RealTimeCorrelativeScanMatcherOptions
+				+Match(const transform::Rigid3d& initial_pose_estimate, const sensor::PointCloud& point_cloud, const HybridGrid& hybrid_grid, transform::Rigid3d* pose_estimate) : float {query}
+				-ScoreCandidate(const HybridGrid& hybrid_grid, const sensor::PointCloud& transformed_point_cloud, const transform::Rigid3f& transform) : float {query}
+				-GenerateExhaustiveSearchTransforms(float resolution, const sensor::PointCloud& point_cloud) : std::vector<transform::Rigid3f> {query}
+			}
+
+			class RotationDeltaCostFunctor2D {
+				-RotationDeltaCostFunctor2D(const double scaling_factor, const double target_angle)
+				+operator()(const T* const pose, T* residual) : bool {query}
+				+{static} CreateAutoDiffCostFunction(const double scaling_factor, const double target_angle) : ceres::CostFunction*
+				-angle_ : const double
+				-scaling_factor_ : const double
+			}
+
+			class RotationDeltaCostFunctor3D {
+				-RotationDeltaCostFunctor3D(const double scaling_factor, const Eigen::Quaterniond& target_rotation)
+				+operator()(const T* const rotation_quaternion, T* residual) : bool {query}
+				+{static} CreateAutoDiffCostFunction(const double scaling_factor, const Eigen::Quaterniond& target_rotation) : ceres::CostFunction*
+				-scaling_factor_ : const double
+				-target_rotation_inverse_ : double[]
+			}
+
+			class RotationalScanMatcher {
+				+RotationalScanMatcher(const Eigen::VectorXf* histogram)
+				+{static} ComputeHistogram(const sensor::PointCloud& point_cloud, int histogram_size) : Eigen::VectorXf
+				+{static} RotateHistogram(const Eigen::VectorXf& histogram, float angle) : Eigen::VectorXf
+				-histogram_ : const Eigen::VectorXf*
+				+Match(const Eigen::VectorXf& histogram, float initial_angle, const std::vector<float>& angles) : std::vector<float> {query}
+			}
+
+			class TranslationDeltaCostFunctor2D {
+				-TranslationDeltaCostFunctor2D(const double scaling_factor, const Eigen::Vector2d& target_translation)
+				+operator()(const T* const pose, T* residual) : bool {query}
+				+{static} CreateAutoDiffCostFunction(const double scaling_factor, const Eigen::Vector2d& target_translation) : ceres::CostFunction*
+				-scaling_factor_ : const double
+				-x_ : const double
+				-y_ : const double
+			}
+
+			class TranslationDeltaCostFunctor3D {
+				-TranslationDeltaCostFunctor3D(const double scaling_factor, const Eigen::Vector3d& target_translation)
+				+operator()(const T* const translation, T* residual) : bool {query}
+				+{static} CreateAutoDiffCostFunction(const double scaling_factor, const Eigen::Vector3d& target_translation) : ceres::CostFunction*
+				-scaling_factor_ : const double
+				-x_ : const double
+				-y_ : const double
+				-z_ : const double
+			}
+
+			class Candidate2D {
+				+Candidate2D(const int init_scan_index, const int init_x_index_offset, const int init_y_index_offset, const SearchParameters& search_parameters)
+				+operator<(const Candidate2D& other) : bool {query}
+				+operator>(const Candidate2D& other) : bool {query}
+				+orientation : double
+				+x : double
+				+y : double
+				+score : float
+				+scan_index : int
+				+x_index_offset : int
+				+y_index_offset : int
+			}
+
+			class FastCorrelativeScanMatcher3D::Result {
+				+low_resolution_score : float
+				+rotational_score : float
+				+score : float
+				+pose_estimate : transform::Rigid3d
+			}
+
+			class FastCorrelativeScanMatcher3D::SearchParameters {
+				+angular_search_window : const double
+				+linear_xy_window_size : const int
+				+linear_z_window_size : const int
+				+low_resolution_matcher : function<float ( const transform::Rigid3f& )>
+			}
+
+			class PointCloudAndHybridGridsPointers {
+				+hybrid_grid : const HybridGrid*
+				+intensity_hybrid_grid : const IntensityHybridGrid*
+				+point_cloud : const sensor::PointCloud*
+			}
+
+			class SearchParameters {
+				+SearchParameters(double linear_search_window, double angular_search_window, const sensor::PointCloud& point_cloud, double resolution)
+				+SearchParameters(int num_linear_perturbations, int num_angular_perturbations, double angular_perturbation_step_size, double resolution)
+				+angular_perturbation_step_size : double
+				+resolution : double
+				+num_angular_perturbations : int
+				+num_scans : int
+				+linear_bounds : std::vector<LinearBounds>
+				+ShrinkToFit(const std::vector<DiscreteScan2D>& scans, const CellLimits& cell_limits) : void
+			}
+
+			class SearchParameters::LinearBounds {
+				+max_x : int
+				+max_y : int
+				+min_x : int
+				+min_y : int
+			}
+		}
+
+		namespace optimization {
+			class CeresPose {
+				+CeresPose(const transform::Rigid3d& rigid, std::unique_ptr<ceres::LocalParameterization> translation_parametrization, std::unique_ptr<ceres::LocalParameterization> rotation_parametrization, ceres::Problem* problem)
+				+data() : Data&
+				+rotation() : double*
+				+rotation() : double* {query}
+				+translation() : double*
+				+translation() : double* {query}
+				-data_ : std::shared_ptr<Data>
+				+ToRigid() : transform::Rigid3d {query}
+			}
+
+			class LandmarkCostFunction2D {
+				-LandmarkCostFunction2D(LandmarkObservation observation, const NodeSpec2D& prev_node, const NodeSpec2D& next_node)
+				+operator()(const T* const prev_node_pose, const T* const next_node_pose, const T* const landmark_rotation, const T* const landmark_translation, T* const e) : bool {query}
+				+{static} CreateAutoDiffCostFunction(LandmarkObservation observation, const NodeSpec2D& prev_node, const NodeSpec2D& next_node) : ceres::CostFunction*
+				-next_node_gravity_alignment_ : const Eigen::Quaterniond
+				-prev_node_gravity_alignment_ : const Eigen::Quaterniond
+				-interpolation_parameter_ : const double
+				-rotation_weight_ : const double
+				-translation_weight_ : const double
+				-landmark_to_tracking_transform_ : const transform::Rigid3d
+			}
+
+			class LandmarkCostFunction3D {
+				-LandmarkCostFunction3D(LandmarkObservation observation, const NodeSpec3D& prev_node, const NodeSpec3D& next_node)
+				+operator()(const T* const prev_node_rotation, const T* const prev_node_translation, const T* const next_node_rotation, const T* const next_node_translation, const T* const landmark_rotation, const T* const landmark_translation, T* const e) : bool {query}
+				+{static} CreateAutoDiffCostFunction(LandmarkObservation observation, const NodeSpec3D& prev_node, const NodeSpec3D& next_node) : ceres::CostFunction*
+				-interpolation_parameter_ : const double
+				-rotation_weight_ : const double
+				-translation_weight_ : const double
+				-landmark_to_tracking_transform_ : const transform::Rigid3d
+			}
+
+			class OptimizationProblem2D {
+				+OptimizationProblem2D(const optimization::proto::OptimizationProblemOptions& options)
+				+~OptimizationProblem2D()
+				+node_data() : MapById<NodeId , NodeSpec2D>& {query}
+				-node_data_ : MapById<NodeId, NodeSpec2D>
+				+submap_data() : MapById<SubmapId , SubmapSpec2D>& {query}
+				-submap_data_ : MapById<SubmapId, SubmapSpec2D>
+				-options_ : optimization::proto::OptimizationProblemOptions
+				-fixed_frame_pose_data_ : sensor::MapByTime<sensor::FixedFramePoseData>
+				+fixed_frame_pose_data() : sensor::MapByTime<sensor::FixedFramePoseData>& {query}
+				-empty_imu_data_ : sensor::MapByTime<sensor::ImuData>
+				+imu_data() : sensor::MapByTime<sensor::ImuData>& {query}
+				-odometry_data_ : sensor::MapByTime<sensor::OdometryData>
+				+odometry_data() : sensor::MapByTime<sensor::OdometryData>& {query}
+				+trajectory_data() : std::map<int , PoseGraphInterface::TrajectoryData>& {query}
+				-trajectory_data_ : std::map<int, PoseGraphInterface::TrajectoryData>
+				+landmark_data() : std::map<std::string , transform::Rigid3d>& {query}
+				-landmark_data_ : std::map<std::string, transform::Rigid3d>
+				-CalculateOdometryBetweenNodes(int trajectory_id, const NodeSpec2D& first_node_data, const NodeSpec2D& second_node_data) : std::unique_ptr<transform::Rigid3d> {query}
+				-InterpolateOdometry(int trajectory_id, common::Time time) : std::unique_ptr<transform::Rigid3d> {query}
+				+AddFixedFramePoseData(int trajectory_id, const sensor::FixedFramePoseData& fixed_frame_pose_data) : void
+				+AddImuData(int trajectory_id, const sensor::ImuData& imu_data) : void
+				+AddOdometryData(int trajectory_id, const sensor::OdometryData& odometry_data) : void
+				+AddSubmap(int trajectory_id, const transform::Rigid2d& global_submap_pose) : void
+				+AddTrajectoryNode(int trajectory_id, const NodeSpec2D& node_data) : void
+				+InsertSubmap(const SubmapId& submap_id, const transform::Rigid2d& global_submap_pose) : void
+				+InsertTrajectoryNode(const NodeId& node_id, const NodeSpec2D& node_data) : void
+				+SetMaxNumIterations(int max_num_iterations) : void
+				+SetTrajectoryData(int trajectory_id, const PoseGraphInterface::TrajectoryData& trajectory_data) : void
+				+Solve(const std::vector<Constraint>& constraints, const std::map<int, PoseGraphInterface::TrajectoryState>& trajectories_state, const std::map<std::string, LandmarkNode>& landmark_nodes) : void
+				+TrimSubmap(const SubmapId& submap_id) : void
+				+TrimTrajectoryNode(const NodeId& node_id) : void
+			}
+
+			class OptimizationProblem3D {
+				+OptimizationProblem3D(const optimization::proto::OptimizationProblemOptions& options)
+				+~OptimizationProblem3D()
+				+node_data() : MapById<NodeId , NodeSpec3D>& {query}
+				-node_data_ : MapById<NodeId, NodeSpec3D>
+				+submap_data() : MapById<SubmapId , SubmapSpec3D>& {query}
+				-submap_data_ : MapById<SubmapId, SubmapSpec3D>
+				-options_ : optimization::proto::OptimizationProblemOptions
+				-fixed_frame_pose_data_ : sensor::MapByTime<sensor::FixedFramePoseData>
+				+fixed_frame_pose_data() : sensor::MapByTime<sensor::FixedFramePoseData>& {query}
+				-imu_data_ : sensor::MapByTime<sensor::ImuData>
+				+imu_data() : sensor::MapByTime<sensor::ImuData>& {query}
+				-odometry_data_ : sensor::MapByTime<sensor::OdometryData>
+				+odometry_data() : sensor::MapByTime<sensor::OdometryData>& {query}
+				+trajectory_data() : std::map<int , PoseGraphInterface::TrajectoryData>& {query}
+				-trajectory_data_ : std::map<int, PoseGraphInterface::TrajectoryData>
+				+landmark_data() : std::map<std::string , transform::Rigid3d>& {query}
+				-landmark_data_ : std::map<std::string, transform::Rigid3d>
+				-CalculateOdometryBetweenNodes(int trajectory_id, const NodeSpec3D& first_node_data, const NodeSpec3D& second_node_data) : std::unique_ptr<transform::Rigid3d> {query}
+				+AddFixedFramePoseData(int trajectory_id, const sensor::FixedFramePoseData& fixed_frame_pose_data) : void
+				+AddImuData(int trajectory_id, const sensor::ImuData& imu_data) : void
+				+AddOdometryData(int trajectory_id, const sensor::OdometryData& odometry_data) : void
+				+AddSubmap(int trajectory_id, const transform::Rigid3d& global_submap_pose) : void
+				+AddTrajectoryNode(int trajectory_id, const NodeSpec3D& node_data) : void
+				+InsertSubmap(const SubmapId& submap_id, const transform::Rigid3d& global_submap_pose) : void
+				+InsertTrajectoryNode(const NodeId& node_id, const NodeSpec3D& node_data) : void
+				+SetMaxNumIterations(int max_num_iterations) : void
+				+SetTrajectoryData(int trajectory_id, const PoseGraphInterface::TrajectoryData& trajectory_data) : void
+				+Solve(const std::vector<Constraint>& constraints, const std::map<int, PoseGraphInterface::TrajectoryState>& trajectories_state, const std::map<std::string, LandmarkNode>& landmark_nodes) : void
+				+TrimSubmap(const SubmapId& submap_id) : void
+				+TrimTrajectoryNode(const NodeId& node_id) : void
+			}
+
+			abstract class OptimizationProblemInterface <template<typename NodeDataType, typename SubmapDataType, typename RigidTransformType>> {
+				+OptimizationProblemInterface()
+				+~OptimizationProblemInterface()
+				+{abstract} node_data() : MapById<NodeId , NodeDataType>& {query}
+				+{abstract} submap_data() : MapById<SubmapId , SubmapDataType>& {query}
+				+{abstract} imu_data() : sensor::MapByTime<sensor::ImuData>& {query}
+				+{abstract} odometry_data() : sensor::MapByTime<sensor::OdometryData>& {query}
+				+{abstract} landmark_data() : std::map<std::string , transform::Rigid3d>& {query}
+				+{abstract} AddImuData(int trajectory_id, const sensor::ImuData& imu_data) : void
+				+{abstract} AddOdometryData(int trajectory_id, const sensor::OdometryData& odometry_data) : void
+				+{abstract} AddSubmap(int trajectory_id, const RigidTransformType& global_submap_pose) : void
+				+{abstract} AddTrajectoryNode(int trajectory_id, const NodeDataType& node_data) : void
+				+{abstract} InsertSubmap(const SubmapId& submap_id, const RigidTransformType& global_submap_pose) : void
+				+{abstract} InsertTrajectoryNode(const NodeId& node_id, const NodeDataType& node_data) : void
+				+{abstract} SetMaxNumIterations(int max_num_iterations) : void
+				+{abstract} Solve(const std::vector<Constraint>& constraints, const std::map<int, PoseGraphInterface::TrajectoryState>& trajectories_state, const std::map<std::string, LandmarkNode>& landmark_nodes) : void
+				+{abstract} TrimSubmap(const SubmapId& submap_id) : void
+				+{abstract} TrimTrajectoryNode(const NodeId& node_id) : void
+			}
+
+			class SpaCostFunction3D {
+				-SpaCostFunction3D(const PoseGraph::Constraint::Pose& pose)
+				+operator()(const T* const c_i_rotation, const T* const c_i_translation, const T* const c_j_rotation, const T* const c_j_translation, T* const e) : bool {query}
+				+{static} CreateAutoDiffCostFunction(const PoseGraph::Constraint::Pose& pose) : ceres::CostFunction*
+				-pose_ : const PoseGraph::Constraint::Pose
+			}
+
+			class CeresPose::Data {
+				+translation : std::array<double, 3>
+				+rotation : std::array<double, 4>
+			}
+
+			class NodeSpec2D {
+				+gravity_alignment : Eigen::Quaterniond
+				+time : common::Time
+				+global_pose_2d : transform::Rigid2d
+				+local_pose_2d : transform::Rigid2d
+			}
+
+			class NodeSpec3D {
+				+time : common::Time
+				+global_pose : transform::Rigid3d
+				+local_pose : transform::Rigid3d
+			}
+
+			class SubmapSpec2D {
+				+global_pose : transform::Rigid2d
+			}
+
+			class SubmapSpec3D {
+				+global_pose : transform::Rigid3d
+			}
+		}
+
+		namespace constraints {
+			abstract class ConstraintBuilder2D {
+				+ConstraintBuilder2D(const proto::ConstraintBuilderOptions& options, common::ThreadPoolInterface* thread_pool)
+				-function<void(vector<Constraint> mutex_)
+				+~ConstraintBuilder2D()
+				-DispatchScanMatcherConstruction(const SubmapId& submap_id, const Grid2D* grid ) EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : SubmapScanMatcher*
+				-mutex_ : absl::Mutex
+				-GUARDED_BY(mutex_) : common::Histogram score_histogram_
+				-thread_pool_ : common::ThreadPoolInterface*
+				-options_ : const constraints::proto::ConstraintBuilderOptions
+				+GetNumFinishedNodes() : int
+				-{abstract} GUARDED_BY(mutex_) : int num_finished_nodes_
+				-{abstract} GUARDED_BY(mutex_) : int num_started_nodes_
+				-ceres_scan_matcher_ : scan_matching::CeresScanMatcher2D
+				-GUARDED_BY(mutex_) : std::deque<std::unique_ptr<Constraint>>constraints_
+				-GUARDED_BY(mutex_) : std::map<SubmapId , SubmapScanMatcher>submap_scan_matchers_
+				-per_submap_sampler_ : std::map<SubmapId, common::FixedRatioSampler>
+				-GUARDED_BY(mutex_) : std::unique_ptr<common::Task>finish_node_task_
+				-GUARDED_BY(mutex_) : std::unique_ptr<common::Task>when_done_task_
+				-ComputeConstraint(const SubmapId& submap_id, const Submap2D* submap, const NodeId& node_id, bool match_full_submap, const TrajectoryNode::Data* const constant_data, const transform::Rigid2d& initial_relative_pose, SubmapScanMatcher submap_scan_matcher, std::unique_ptr<Constraint>* constraint ) LOCKS_EXCLUDED ( mutex_) : void
+				+DeleteScanMatcher(const SubmapId& submap_id) : void
+				+MaybeAddConstraint(const SubmapId& submap_id, const Submap2D* submap, const NodeId& node_id, const TrajectoryNode::Data* const constant_data, const transform::Rigid2d& initial_relative_pose) : void
+				+MaybeAddGlobalConstraint(const SubmapId& submap_id, const Submap2D* submap, const NodeId& node_id, const TrajectoryNode::Data* const constant_data) : void
+				+NotifyEndOfNode() : void
+				+{static} RegisterMetrics(metrics::FamilyFactory* family_factory) : void
+				-RunWhenDoneCallback() LOCKS_EXCLUDED ( mutex_) : void
+				+WhenDone(const std::function<void ( const Result& )>& callback) : void
+			}
+
+			abstract class ConstraintBuilder3D {
+				+ConstraintBuilder3D(const proto::ConstraintBuilderOptions& options, common::ThreadPoolInterface* thread_pool)
+				-function<void(vector<Constraint> mutex_)
+				+~ConstraintBuilder3D()
+				-DispatchScanMatcherConstruction(const SubmapId& submap_id, const Submap3D* submap ) EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : SubmapScanMatcher*
+				-mutex_ : absl::Mutex
+				-GUARDED_BY(mutex_) : common::Histogram low_resolution_score_histogram_
+				-GUARDED_BY(mutex_) : common::Histogram rotational_score_histogram_
+				-GUARDED_BY(mutex_) : common::Histogram score_histogram_
+				-thread_pool_ : common::ThreadPoolInterface*
+				-options_ : const proto::ConstraintBuilderOptions
+				+GetNumFinishedNodes() : int
+				-{abstract} GUARDED_BY(mutex_) : int num_finished_nodes_
+				-{abstract} GUARDED_BY(mutex_) : int num_started_nodes_
+				-ceres_scan_matcher_ : scan_matching::CeresScanMatcher3D
+				-GUARDED_BY(mutex_) : std::deque<std::unique_ptr<Constraint>>constraints_
+				-GUARDED_BY(mutex_) : std::map<SubmapId , SubmapScanMatcher>submap_scan_matchers_
+				-per_submap_sampler_ : std::map<SubmapId, common::FixedRatioSampler>
+				-GUARDED_BY(mutex_) : std::unique_ptr<common::Task>finish_node_task_
+				-GUARDED_BY(mutex_) : std::unique_ptr<common::Task>when_done_task_
+				-ComputeConstraint(const SubmapId& submap_id, const NodeId& node_id, bool match_full_submap, const TrajectoryNode::Data* const constant_data, const transform::Rigid3d& global_node_pose, const transform::Rigid3d& global_submap_pose, SubmapScanMatcher submap_scan_matcher, std::unique_ptr<Constraint>* constraint ) LOCKS_EXCLUDED ( mutex_) : void
+				+DeleteScanMatcher(const SubmapId& submap_id) : void
+				+MaybeAddConstraint(const SubmapId& submap_id, const Submap3D* submap, const NodeId& node_id, const TrajectoryNode::Data* const constant_data, const transform::Rigid3d& global_node_pose, const transform::Rigid3d& global_submap_pose) : void
+				+MaybeAddGlobalConstraint(const SubmapId& submap_id, const Submap3D* submap, const NodeId& node_id, const TrajectoryNode::Data* const constant_data, const Eigen::Quaterniond& global_node_rotation, const Eigen::Quaterniond& global_submap_rotation) : void
+				+NotifyEndOfNode() : void
+				+{static} RegisterMetrics(metrics::FamilyFactory* family_factory) : void
+				-RunWhenDoneCallback() LOCKS_EXCLUDED ( mutex_) : void
+				+WhenDone(const std::function<void ( const Result& )>& callback) : void
+			}
+
+			class ConstraintBuilder2D::SubmapScanMatcher {
+				+grid : const Grid2D*
+				+fast_correlative_scan_matcher : std::unique_ptr<scan_matching::FastCorrelativeScanMatcher2D>
+				+creation_task_handle : std::weak_ptr<common::Task>
+			}
+
+			class ConstraintBuilder3D::SubmapScanMatcher {
+				+high_resolution_hybrid_grid : const HybridGrid*
+				+low_resolution_hybrid_grid : const HybridGrid*
+				+fast_correlative_scan_matcher : std::unique_ptr<scan_matching::FastCorrelativeScanMatcher3D>
+				+creation_task_handle : std::weak_ptr<common::Task>
+			}
+		}
+	}
+}
+
+
+
+
+
+/' Inheritance relationships '/
+
+cartographer.mapping.Grid2D <|-- cartographer.mapping.ProbabilityGrid
+
+
+cartographer.mapping.Grid2D <|-- cartographer.mapping.TSDF2D
+
+
+cartographer.mapping.GridInterface <|-- cartographer.mapping.Grid2D
+
+
+cartographer.mapping.HybridGridBase <|-- cartographer.mapping.HybridGrid
+
+
+cartographer.mapping.HybridGridBase <|-- cartographer.mapping.IntensityHybridGrid
+
+
+cartographer.mapping.HybridGridBase <|-- cartographer.mapping.scan_matching.PrecomputationGrid3D
+
+
+cartographer.mapping.LocalSlamResultData <|-- cartographer.mapping.LocalSlamResult2D
+
+
+cartographer.mapping.LocalSlamResultData <|-- cartographer.mapping.LocalSlamResult3D
+
+
+cartographer.mapping.MapBuilderInterface <|-- cartographer.mapping.MapBuilder
+
+
+cartographer.mapping.MapBuilderInterface <|-- cartographer.mapping.testing.MockMapBuilder
+
+
+cartographer.mapping.optimization.OptimizationProblemInterface <|-- cartographer.mapping.optimization.OptimizationProblem2D
+
+
+cartographer.mapping.optimization.OptimizationProblemInterface <|-- cartographer.mapping.optimization.OptimizationProblem3D
+
+
+cartographer.mapping.PoseExtrapolatorInterface <|-- cartographer.mapping.ImuBasedPoseExtrapolator
+
+
+cartographer.mapping.PoseExtrapolatorInterface <|-- cartographer.mapping.PoseExtrapolator
+
+
+cartographer.mapping.PoseGraph <|-- cartographer.mapping.PoseGraph2D
+
+
+cartographer.mapping.PoseGraph <|-- cartographer.mapping.PoseGraph3D
+
+
+cartographer.mapping.PoseGraphInterface <|-- cartographer.mapping.testing.MockPoseGraph
+
+
+cartographer.mapping.PoseGraphInterface <|-- cartographer.mapping.PoseGraph
+
+
+cartographer.mapping.PoseGraphTrimmer <|-- cartographer.mapping.OverlappingSubmapsTrimmer2D
+
+
+cartographer.mapping.PoseGraphTrimmer <|-- cartographer.mapping.PureLocalizationTrimmer
+
+
+cartographer.mapping.RangeDataInserterInterface <|-- cartographer.mapping.ProbabilityGridRangeDataInserter2D
+
+
+cartographer.mapping.RangeDataInserterInterface <|-- cartographer.mapping.TSDFRangeDataInserter2D
+
+
+cartographer.mapping.Submap <|-- cartographer.mapping.Submap2D
+
+
+cartographer.mapping.Submap <|-- cartographer.mapping.Submap3D
+
+
+cartographer.mapping.TrajectoryBuilderInterface <|-- cartographer.mapping.CollatedTrajectoryBuilder
+
+
+cartographer.mapping.TrajectoryBuilderInterface <|-- cartographer.mapping.testing.MockTrajectoryBuilder
+
+
+cartographer.mapping.Trimmable <|-- cartographer.mapping.testing.FakeTrimmable
+
+
+cartographer.mapping.Trimmable <|-- cartographer.mapping.PoseGraph2D::TrimmingHandle
+
+
+cartographer.mapping.Trimmable <|-- cartographer.mapping.PoseGraph3D::TrimmingHandle
+
+
+
+
+
+/' Aggregation relationships '/
+
+cartographer.mapping.ActiveSubmaps2D o-- cartographer.mapping.RangeDataInserterInterface
+
+
+cartographer.mapping.ActiveSubmaps2D o-- cartographer.mapping.Submap2D
+
+
+cartographer.mapping.ActiveSubmaps2D *-- cartographer.mapping.ValueConversionTables
+
+
+cartographer.mapping.ActiveSubmaps3D *-- cartographer.mapping.RangeDataInserter3D
+
+
+cartographer.mapping.ActiveSubmaps3D o-- cartographer.mapping.Submap3D
+
+
+cartographer.mapping.CollatedTrajectoryBuilder o-- cartographer.mapping.TrajectoryBuilderInterface
+
+
+cartographer.mapping.constraints.ConstraintBuilder2D::SubmapScanMatcher o-- cartographer.mapping.Grid2D
+
+
+cartographer.mapping.constraints.ConstraintBuilder3D::SubmapScanMatcher "2" o-- cartographer.mapping.HybridGrid
+
+
+cartographer.mapping.testing.FakeTrimmable *-- cartographer.mapping.MapById
+
+
+cartographer.mapping.testing.FakeTrimmable *-- cartographer.mapping.SubmapId
+
+
+cartographer.mapping.scan_matching.FastCorrelativeScanMatcher2D *-- cartographer.mapping.MapLimits
+
+
+cartographer.mapping.scan_matching.FastCorrelativeScanMatcher2D o-- cartographer.mapping.scan_matching.PrecomputationGridStack2D
+
+
+cartographer.mapping.scan_matching.FastCorrelativeScanMatcher3D o-- cartographer.mapping.HybridGrid
+
+
+cartographer.mapping.scan_matching.FastCorrelativeScanMatcher3D o-- cartographer.mapping.scan_matching.PrecomputationGridStack3D
+
+
+cartographer.mapping.scan_matching.FastCorrelativeScanMatcher3D *-- cartographer.mapping.scan_matching.RotationalScanMatcher
+
+
+cartographer.mapping.Floor *-- cartographer.mapping.Timespan
+
+
+cartographer.mapping.Grid2D *-- cartographer.mapping.MapLimits
+
+
+cartographer.mapping.InternalSubmapData *-- cartographer.mapping.NodeId
+
+
+cartographer.mapping.InternalSubmapData *-- cartographer.mapping.Submap
+
+
+cartographer.mapping.InternalSubmapData *-- cartographer.mapping.SubmapState
+
+
+cartographer.mapping.scan_matching.InterpolatedTSDF2D *-- cartographer.mapping.TSDF2D
+
+
+cartographer.mapping.LocalSlamResult2D *-- cartographer.mapping.LocalSlamResultData
+
+
+cartographer.mapping.LocalSlamResult2D *-- cartographer.mapping.Submap2D
+
+
+cartographer.mapping.LocalSlamResult3D *-- cartographer.mapping.LocalSlamResultData
+
+
+cartographer.mapping.LocalSlamResult3D *-- cartographer.mapping.Submap3D
+
+
+cartographer.mapping.LocalTrajectoryBuilder2D *-- cartographer.mapping.ActiveSubmaps2D
+
+
+cartographer.mapping.LocalTrajectoryBuilder2D *-- cartographer.mapping.scan_matching.CeresScanMatcher2D
+
+
+cartographer.mapping.LocalTrajectoryBuilder2D *-- cartographer.mapping.MotionFilter
+
+
+cartographer.mapping.LocalTrajectoryBuilder2D o-- cartographer.mapping.PoseExtrapolator
+
+
+cartographer.mapping.LocalTrajectoryBuilder2D *-- cartographer.mapping.RangeDataCollator
+
+
+cartographer.mapping.LocalTrajectoryBuilder2D *-- cartographer.mapping.scan_matching.RealTimeCorrelativeScanMatcher2D
+
+
+cartographer.mapping.LocalTrajectoryBuilder2D::InsertionResult *-- cartographer.mapping.Submap2D
+
+
+cartographer.mapping.LocalTrajectoryBuilder3D *-- cartographer.mapping.ActiveSubmaps3D
+
+
+cartographer.mapping.LocalTrajectoryBuilder3D *-- cartographer.mapping.MotionFilter
+
+
+cartographer.mapping.LocalTrajectoryBuilder3D *-- cartographer.mapping.PoseExtrapolatorInterface
+
+
+cartographer.mapping.LocalTrajectoryBuilder3D *-- cartographer.mapping.RangeDataCollator
+
+
+cartographer.mapping.LocalTrajectoryBuilder3D::InsertionResult *-- cartographer.mapping.Submap3D
+
+
+cartographer.mapping.MapBuilder o-- cartographer.mapping.PoseGraph
+
+
+cartographer.mapping.MapBuilder *-- cartographer.mapping.TrajectoryBuilderInterface
+
+
+cartographer.mapping.MapLimits *-- cartographer.mapping.CellLimits
+
+
+cartographer.mapping.optimization.OptimizationProblem2D *-- cartographer.mapping.optimization.NodeSpec2D
+
+
+cartographer.mapping.optimization.OptimizationProblem2D *-- cartographer.mapping.optimization.SubmapSpec2D
+
+
+cartographer.mapping.optimization.OptimizationProblem3D *-- cartographer.mapping.optimization.NodeSpec3D
+
+
+cartographer.mapping.optimization.OptimizationProblem3D *-- cartographer.mapping.optimization.SubmapSpec3D
+
+
+cartographer.mapping.scan_matching.PointCloudAndHybridGridsPointers o-- cartographer.mapping.HybridGrid
+
+
+cartographer.mapping.scan_matching.PointCloudAndHybridGridsPointers o-- cartographer.mapping.IntensityHybridGrid
+
+
+cartographer.mapping.PoseExtrapolator "3" o-- cartographer.mapping.ImuTracker
+
+
+cartographer.mapping.PoseGraph2D *-- cartographer.mapping.constraints.ConstraintBuilder2D
+
+
+cartographer.mapping.PoseGraph2D *-- cartographer.mapping.ValueConversionTables
+
+
+cartographer.mapping.PoseGraph2D::TrimmingHandle o-- cartographer.mapping.PoseGraph2D
+
+
+cartographer.mapping.PoseGraph3D *-- cartographer.mapping.constraints.ConstraintBuilder3D
+
+
+cartographer.mapping.PoseGraph3D::TrimmingHandle o-- cartographer.mapping.PoseGraph3D
+
+
+cartographer.mapping.PoseGraphData *-- cartographer.mapping.InternalTrajectoryState
+
+
+cartographer.mapping.PoseGraphData "2" *-- cartographer.mapping.MapById
+
+
+cartographer.mapping.PoseGraphData *-- cartographer.mapping.TrajectoryConnectivityState
+
+
+cartographer.mapping.PoseGraphInterface::Constraint *-- cartographer.mapping.NodeId
+
+
+cartographer.mapping.PoseGraphInterface::Constraint *-- cartographer.mapping.SubmapId
+
+
+cartographer.mapping.PoseGraphInterface::SubmapData *-- cartographer.mapping.Submap
+
+
+cartographer.mapping.scan_matching.PrecomputationGrid2D *-- cartographer.mapping.CellLimits
+
+
+cartographer.mapping.scan_matching.PrecomputationGridStack2D *-- cartographer.mapping.scan_matching.PrecomputationGrid2D
+
+
+cartographer.mapping.scan_matching.PrecomputationGridStack3D *-- cartographer.mapping.scan_matching.PrecomputationGrid3D
+
+
+cartographer.mapping.ProbabilityGrid o-- cartographer.mapping.ValueConversionTables
+
+
+cartographer.mapping.Submap2D o-- cartographer.mapping.Grid2D
+
+
+cartographer.mapping.Submap2D o-- cartographer.mapping.ValueConversionTables
+
+
+cartographer.mapping.Submap3D "2" o-- cartographer.mapping.HybridGrid
+
+
+cartographer.mapping.Submap3D o-- cartographer.mapping.IntensityHybridGrid
+
+
+cartographer.mapping.SubmapController *-- cartographer.mapping.ValueConversionTables
+
+
+cartographer.mapping.TSDF2D o-- cartographer.mapping.TSDValueConverter
+
+
+cartographer.mapping.TSDF2D o-- cartographer.mapping.ValueConversionTables
+
+
+cartographer.mapping.TrajectoryBuilderInterface::InsertionResult *-- cartographer.mapping.NodeId
+
+
+cartographer.mapping.TrajectoryBuilderInterface::InsertionResult *-- cartographer.mapping.Submap
+
+
+cartographer.mapping.TrajectoryConnectivityState *-- cartographer.mapping.ConnectedComponents
+
+
+
+
+
+
+/' Nested objects '/
+
+cartographer.mapping.optimization.CeresPose +-- cartographer.mapping.optimization.CeresPose.Data
+
+
+cartographer.mapping.constraints.ConstraintBuilder2D +-- cartographer.mapping.constraints.ConstraintBuilder2D.SubmapScanMatcher
+
+
+cartographer.mapping.constraints.ConstraintBuilder3D +-- cartographer.mapping.constraints.ConstraintBuilder3D.SubmapScanMatcher
+
+
+cartographer.mapping.DynamicGrid +-- cartographer.mapping.DynamicGrid.Iterator
+
+
+cartographer.mapping.scan_matching.FastCorrelativeScanMatcher3D +-- cartographer.mapping.scan_matching.FastCorrelativeScanMatcher3D.Result
+
+
+cartographer.mapping.scan_matching.FastCorrelativeScanMatcher3D +-- cartographer.mapping.scan_matching.FastCorrelativeScanMatcher3D.SearchParameters
+
+
+cartographer.mapping.FlatGrid +-- cartographer.mapping.FlatGrid.Iterator
+
+
+cartographer.mapping.InternalTrajectoryState +-- cartographer.mapping.InternalTrajectoryState.DeletionState
+
+
+cartographer.mapping.LocalTrajectoryBuilder2D +-- cartographer.mapping.LocalTrajectoryBuilder2D.InsertionResult
+
+
+cartographer.mapping.LocalTrajectoryBuilder2D +-- cartographer.mapping.LocalTrajectoryBuilder2D.MatchingResult
+
+
+cartographer.mapping.LocalTrajectoryBuilder3D +-- cartographer.mapping.LocalTrajectoryBuilder3D.InsertionResult
+
+
+cartographer.mapping.LocalTrajectoryBuilder3D +-- cartographer.mapping.LocalTrajectoryBuilder3D.MatchingResult
+
+
+cartographer.mapping.MapById +-- cartographer.mapping.MapById.ConstIterator
+
+
+cartographer.mapping.MapById +-- cartographer.mapping.MapById.ConstTrajectoryIterator
+
+
+cartographer.mapping.MapById +-- cartographer.mapping.MapById.IdDataReference
+
+
+cartographer.mapping.MapById +-- cartographer.mapping.MapById.MapByIndex
+
+
+cartographer.mapping.NestedGrid +-- cartographer.mapping.NestedGrid.Iterator
+
+
+cartographer.mapping.PoseExtrapolator +-- cartographer.mapping.PoseExtrapolator.TimedPose
+
+
+cartographer.mapping.PoseExtrapolatorInterface +-- cartographer.mapping.PoseExtrapolatorInterface.ExtrapolationResult
+
+
+cartographer.mapping.PoseGraph +-- cartographer.mapping.PoseGraph.InitialTrajectoryPose
+
+
+cartographer.mapping.PoseGraph2D +-- cartographer.mapping.PoseGraph2D.TrimmingHandle
+
+
+cartographer.mapping.PoseGraph3D +-- cartographer.mapping.PoseGraph3D.TrimmingHandle
+
+
+cartographer.mapping.PoseGraphInterface +-- cartographer.mapping.PoseGraphInterface.Constraint
+
+
+cartographer.mapping.PoseGraphInterface +-- cartographer.mapping.PoseGraphInterface.LandmarkNode
+
+
+cartographer.mapping.PoseGraphInterface +-- cartographer.mapping.PoseGraphInterface.SubmapData
+
+
+cartographer.mapping.PoseGraphInterface +-- cartographer.mapping.PoseGraphInterface.SubmapPose
+
+
+cartographer.mapping.PoseGraphInterface +-- cartographer.mapping.PoseGraphInterface.TrajectoryData
+
+
+cartographer.mapping.scan_matching.SearchParameters +-- cartographer.mapping.scan_matching.SearchParameters.LinearBounds
+
+
+cartographer.mapping.TrajectoryBuilderInterface +-- cartographer.mapping.TrajectoryBuilderInterface.InsertionResult
+
+
+cartographer.mapping.TrajectoryBuilderInterface +-- cartographer.mapping.TrajectoryBuilderInterface.SensorId
+
+
+cartographer.mapping.TrajectoryNode +-- cartographer.mapping.TrajectoryNode.Data
+
+
+cartographer.mapping.TrajectoryNodePose +-- cartographer.mapping.TrajectoryNodePose.ConstantPoseData
+
+
+cartographer.mapping.WorkItem +-- cartographer.mapping.WorkItem.Result
+
+
+
+
+@enduml
