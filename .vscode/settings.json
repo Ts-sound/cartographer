@@ -1,7 +1,13 @@
 {
     "todo-tree.general.rootFolder": "${workspaceFolder}/0.study/",
-    "markdown-preview-enhanced.plantumlJarPath": "/root/tong/plantuml-1.2025.4.jar",
-    "plantuml.jar": "${workspaceFolder}0.study/assets/plantuml-1.2025.4.jar",
+    "markdown-preview-enhanced.plantumlJarPath": "${workspaceFolder}/0.study/assets/plantuml-1.2025.4.jar",
+    "plantuml.jar": "${workspaceFolder}/0.study/assets/plantuml-1.2025.4.jar",
+    "markdownlint.config": {
+        "MD029": false,
+        "MD033": false,
+        "MD045": false
+        
+      },
     "files.associations": {
         "chrono": "cpp",
         "condition_variable": "cpp",

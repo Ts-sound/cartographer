@@ -6,7 +6,7 @@
 
 Cartographer 云服务系统中 `MapBuilderServer` 类的完整实现，它是 Cartographer 分布式 SLAM 架构的核心服务器组件。下面从设计理念、核心功能和关键流程三方面深入解析：
 
-### 一、设计理念
+## 一、设计理念
 
 1. **云-边分离架构**：
    * 实现 SLAM 服务的远程调用（gRPC）

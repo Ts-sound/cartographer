@@ -48,7 +48,7 @@ namespace cartographer {
 			#SetThreadPool(Task* task) : void
 		}
 
-		enum Task::State {
+		enum Task_State {
 			COMPLETED
 			DEPENDENCIES_COMPLETED
 			DISPATCHED
@@ -78,8 +78,8 @@ cartographer.common.ThreadPoolInterface <|-- cartographer.common.ThreadPool
 
 /' Nested objects '/
 
-cartographer.common.Task +-- cartographer.common.Task::State
-
+cartographer.common.Task *-- cartographer.common.Task_State
+cartographer.common.ThreadPoolInterface *-- cartographer.common.Task
 
 
 
