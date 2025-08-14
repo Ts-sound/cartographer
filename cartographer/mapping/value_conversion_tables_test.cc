@@ -33,6 +33,20 @@ TEST(ValueConversionTablesTest, EqualTables) {
   EXPECT_EQ(reference_table, test_table);
 }
 
+TEST(ValueConversionTablesTest, PrintTables) {
+  ValueConversionTables value_conversion_tables;
+  const std::vector<float>* reference_table =
+      value_conversion_tables.GetConversionTable(0.0f, 1.f,32767.f);
+  
+  for (size_t i = 0; i < reference_table->size(); ++i) {
+    if (i % 8 == 0) {
+      printf("\n");
+    }
+    printf("%2f, ", (*reference_table)[i]);
+  }
+  printf("\n size: %zu\n", reference_table->size());
+}
+
 TEST(ValueConversionTablesTest, InequalTables) {
   ValueConversionTables value_conversion_tables;
   const std::vector<float>* reference_table =

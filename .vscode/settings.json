@@ -69,9 +69,25 @@
         "deque": "cpp",
         "fstream": "cpp",
         "complex": "cpp",
-        "*.inc": "cpp"
+        "*.inc": "cpp",
+        "any": "cpp",
+        "bit": "cpp",
+        "bitset": "cpp",
+        "codecvt": "cpp",
+        "compare": "cpp",
+        "concepts": "cpp",
+        "forward_list": "cpp",
+        "future": "cpp",
+        "numbers": "cpp",
+        "semaphore": "cpp",
+        "stop_token": "cpp",
+        "typeindex": "cpp",
+        "variant": "cpp"
     },
     "todo-tree.tree.scanMode": "workspace",
     "todo-tree.general.statusBar": "total",
-    "todo-tree.filtering.ignoreGitSubmodules": true
+    "todo-tree.filtering.ignoreGitSubmodules": true,
+    "commentTranslate.source": "Bing",
+    "commentTranslate.maxTranslationLength": 100,
+    "commentTranslate.targetLanguage": "zh-CN"
 }
