@@ -25,3 +25,7 @@
 
 > 通过查表法，用于将浮点数映射到紧凑的 uint16整数表示（范围 [1, 32767]），主要用于优化存储和处理效率；
 
+
+##
+ 
+![alt text](./assets/puml/mapping/mapping_2d.puml)

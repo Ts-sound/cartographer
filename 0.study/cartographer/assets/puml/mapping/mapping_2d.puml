@@ -1,0 +1,651 @@
+@startuml test
+
+
+
+
+
+/' Objects '/
+
+
+class ActiveSubmaps2D {
+}
+
+
+
+class CollatedTrajectoryBuilder {
+}
+
+class ConnectedComponents {
+}
+
+class DynamicGrid <template<typename WrappedGrid>> {
+}
+
+
+class FlatGrid <template<typename TValueType, int kBits>> {
+}
+
+abstract class Grid2D {
+}
+
+class GridInterface {
+}
+
+class HybridGrid {
+}
+
+class HybridGridBase <template<typename ValueType>> {
+}
+
+class ImuBasedPoseExtrapolator {
+
+}
+
+class ImuTracker {
+}
+
+class IntensityHybridGrid {
+}
+
+class LocalSlamResult2D {
+}
+
+abstract class LocalSlamResultData {
+}
+
+class LocalTrajectoryBuilder2D {
+}
+
+
+class MapBuilder {
+
+}
+
+abstract class MapBuilderInterface {
+
+}
+
+class MapLimits {
+
+}
+
+class MotionFilter {
+
+}
+
+class NestedGrid <template<typename WrappedGrid, int kBits>> {
+}
+
+
+class OverlappingSubmapsTrimmer2D {
+
+}
+
+class PoseExtrapolator {
+
+}
+
+abstract class PoseExtrapolatorInterface {
+
+}
+
+abstract class PoseGraph {
+
+}
+
+abstract class PoseGraph2D {
+
+}
+
+
+class PoseGraphInterface {
+}
+
+abstract class PoseGraphTrimmer {
+}
+
+class ProbabilityGrid {
+}
+
+class ProbabilityGridRangeDataInserter2D {
+}
+
+class PureLocalizationTrimmer {
+}
+
+class RangeDataCollator {
+}
+
+abstract class RangeDataInserterInterface {
+}
+
+abstract class Submap {
+}
+
+class Submap2D {
+}
+
+class TSDF2D {
+}
+
+class TSDFRangeDataInserter2D {
+}
+
+class TSDValueConverter {
+}
+
+abstract class TrajectoryBuilderInterface {
+	+{abstract} AddLocalSlamResultData(std::unique_ptr<mapping::LocalSlamResultData> local_slam_result_data) : void
+	+{abstract} AddSensorData(const std::string& sensor_id, const sensor::TimedPointCloudData& timed_point_cloud_data) : void
+	+{abstract} AddSensorData(const std::string& sensor_id, const sensor::ImuData& imu_data) : void
+	+{abstract} AddSensorData(const std::string& sensor_id, const sensor::OdometryData& odometry_data) : void
+	+{abstract} AddSensorData(const std::string& sensor_id, const sensor::FixedFramePoseData& fixed_frame_pose) : void
+	+{abstract} AddSensorData(const std::string& sensor_id, const sensor::LandmarkData& landmark_data) : void
+}
+
+class TrajectoryConnectivityState {
+}
+
+abstract class Trimmable {
+}
+
+class ValueConversionTables {
+}
+
+class XYIndexRangeIterator {
+}
+
+
+class CellLimits {
+}
+
+class ExtrapolatePoseResult <template<typename T>> {
+	+velocity : Eigen::Matrix<T, 3, 1>
+	+pose : transform::Rigid3<T>
+}
+
+class Floor {
+}
+
+class IntegrateImuResult <template<typename T>> {
+
+}
+
+class InternalSubmapData {
+}
+
+class InternalTrajectoryState {
+}
+
+
+class PoseGraphData {
+
+}
+
+class SubmapId {
+}
+
+class Timespan {
+	+end : common::Time
+	+start : common::Time
+}
+
+class TrajectoryBuilderInterface::InsertionResult {
+
+}
+
+class TrajectoryNode {
+}
+
+class TrajectoryNode::Data {
+}
+
+class TrajectoryNodePose {
+}
+
+class TrajectoryNodePose::ConstantPoseData {
+}
+
+class WorkItem {
+}
+
+namespace scan_matching {
+	class CeresScanMatcher2D {
+	}
+
+	class FastCorrelativeScanMatcher2D {
+	}
+
+	class InterpolatedGrid <template<class HybridGridType>> {
+	}
+
+	class InterpolatedTSDF2D {
+	}
+
+
+
+	class PrecomputationGrid2D {
+	}
+
+
+	class PrecomputationGridStack2D {
+	}
+
+
+	class RealTimeCorrelativeScanMatcher2D {}
+
+	class RotationDeltaCostFunctor2D {
+	}
+
+	class RotationalScanMatcher {
+	}
+
+	class TranslationDeltaCostFunctor2D {
+	}
+
+
+	class Candidate2D {
+	}
+
+
+	class PointCloudAndHybridGridsPointers {
+	}
+
+	class SearchParameters {
+	}
+
+}
+
+namespace optimization {
+	class CeresPose {
+	}
+
+	class LandmarkCostFunction2D {
+	}
+
+
+	class OptimizationProblem2D {
+		+OptimizationProblem2D(const optimization::proto::OptimizationProblemOptions& options)
+		+~OptimizationProblem2D()
+		+node_data() : MapById<NodeId , NodeSpec2D>& {query}
+		-node_data_ : MapById<NodeId, NodeSpec2D>
+		+submap_data() : MapById<SubmapId , SubmapSpec2D>& {query}
+		-submap_data_ : MapById<SubmapId, SubmapSpec2D>
+		-options_ : optimization::proto::OptimizationProblemOptions
+		-fixed_frame_pose_data_ : sensor::MapByTime<sensor::FixedFramePoseData>
+		+fixed_frame_pose_data() : sensor::MapByTime<sensor::FixedFramePoseData>& {query}
+		-empty_imu_data_ : sensor::MapByTime<sensor::ImuData>
+		+imu_data() : sensor::MapByTime<sensor::ImuData>& {query}
+		-odometry_data_ : sensor::MapByTime<sensor::OdometryData>
+		+odometry_data() : sensor::MapByTime<sensor::OdometryData>& {query}
+		+trajectory_data() : std::map<int , PoseGraphInterface::TrajectoryData>& {query}
+		-trajectory_data_ : std::map<int, PoseGraphInterface::TrajectoryData>
+		+landmark_data() : std::map<std::string , transform::Rigid3d>& {query}
+		-landmark_data_ : std::map<std::string, transform::Rigid3d>
+		-CalculateOdometryBetweenNodes(int trajectory_id, const NodeSpec2D& first_node_data, const NodeSpec2D& second_node_data) : std::unique_ptr<transform::Rigid3d> {query}
+		-InterpolateOdometry(int trajectory_id, common::Time time) : std::unique_ptr<transform::Rigid3d> {query}
+		+AddFixedFramePoseData(int trajectory_id, const sensor::FixedFramePoseData& fixed_frame_pose_data) : void
+		+AddImuData(int trajectory_id, const sensor::ImuData& imu_data) : void
+		+AddOdometryData(int trajectory_id, const sensor::OdometryData& odometry_data) : void
+		+AddSubmap(int trajectory_id, const transform::Rigid2d& global_submap_pose) : void
+		+AddTrajectoryNode(int trajectory_id, const NodeSpec2D& node_data) : void
+		+InsertSubmap(const SubmapId& submap_id, const transform::Rigid2d& global_submap_pose) : void
+		+InsertTrajectoryNode(const NodeId& node_id, const NodeSpec2D& node_data) : void
+		+SetMaxNumIterations(int max_num_iterations) : void
+		+SetTrajectoryData(int trajectory_id, const PoseGraphInterface::TrajectoryData& trajectory_data) : void
+		+Solve(const std::vector<Constraint>& constraints, const std::map<int, PoseGraphInterface::TrajectoryState>& trajectories_state, const std::map<std::string, LandmarkNode>& landmark_nodes) : void
+		+TrimSubmap(const SubmapId& submap_id) : void
+		+TrimTrajectoryNode(const NodeId& node_id) : void
+	}
+
+	abstract class OptimizationProblemInterface <template<typename NodeDataType, typename SubmapDataType, typename RigidTransformType>> {
+		+OptimizationProblemInterface()
+		+~OptimizationProblemInterface()
+		+{abstract} node_data() : MapById<NodeId , NodeDataType>& {query}
+		+{abstract} submap_data() : MapById<SubmapId , SubmapDataType>& {query}
+		+{abstract} imu_data() : sensor::MapByTime<sensor::ImuData>& {query}
+		+{abstract} odometry_data() : sensor::MapByTime<sensor::OdometryData>& {query}
+		+{abstract} landmark_data() : std::map<std::string , transform::Rigid3d>& {query}
+		+{abstract} AddImuData(int trajectory_id, const sensor::ImuData& imu_data) : void
+		+{abstract} AddOdometryData(int trajectory_id, const sensor::OdometryData& odometry_data) : void
+		+{abstract} AddSubmap(int trajectory_id, const RigidTransformType& global_submap_pose) : void
+		+{abstract} AddTrajectoryNode(int trajectory_id, const NodeDataType& node_data) : void
+		+{abstract} InsertSubmap(const SubmapId& submap_id, const RigidTransformType& global_submap_pose) : void
+		+{abstract} InsertTrajectoryNode(const NodeId& node_id, const NodeDataType& node_data) : void
+		+{abstract} SetMaxNumIterations(int max_num_iterations) : void
+		+{abstract} Solve(const std::vector<Constraint>& constraints, const std::map<int, PoseGraphInterface::TrajectoryState>& trajectories_state, const std::map<std::string, LandmarkNode>& landmark_nodes) : void
+		+{abstract} TrimSubmap(const SubmapId& submap_id) : void
+		+{abstract} TrimTrajectoryNode(const NodeId& node_id) : void
+	}
+
+
+	class NodeSpec2D {
+		+gravity_alignment : Eigen::Quaterniond
+		+time : common::Time
+		+global_pose_2d : transform::Rigid2d
+		+local_pose_2d : transform::Rigid2d
+	}
+
+
+	class SubmapSpec2D {
+		+global_pose : transform::Rigid2d
+	}
+
+}
+
+namespace constraints {
+	abstract class ConstraintBuilder2D {
+		+ConstraintBuilder2D(const proto::ConstraintBuilderOptions& options, common::ThreadPoolInterface* thread_pool)
+		-function<void(vector<Constraint> mutex_)
+		+~ConstraintBuilder2D()
+		-DispatchScanMatcherConstruction(const SubmapId& submap_id, const Grid2D* grid ) EXCLUSIVE_LOCKS_REQUIRED ( mutex_) : SubmapScanMatcher*
+		-mutex_ : absl::Mutex
+		-GUARDED_BY(mutex_) : common::Histogram score_histogram_
+		-thread_pool_ : common::ThreadPoolInterface*
+		-options_ : const constraints::proto::ConstraintBuilderOptions
+		+GetNumFinishedNodes() : int
+		-RunWhenDoneCallback() LOCKS_EXCLUDED ( mutex_) : void
+		+WhenDone(const std::function<void ( const Result& )>& callback) : void
+	}
+
+}
+
+
+
+
+
+
+
+
+/' Inheritance relationships '/
+
+Grid2D <|-- ProbabilityGrid
+
+
+Grid2D <|-- TSDF2D
+
+
+GridInterface <|-- Grid2D
+
+
+HybridGridBase <|-- HybridGrid
+
+
+HybridGridBase <|-- IntensityHybridGrid
+
+
+
+
+LocalSlamResultData <|-- LocalSlamResult2D
+
+
+
+
+MapBuilderInterface <|-- MapBuilder
+
+
+MapBuilderInterface <|-- testing.MockMapBuilder
+
+
+optimization.OptimizationProblemInterface <|-- optimization.OptimizationProblem2D
+
+
+
+
+PoseExtrapolatorInterface <|-- ImuBasedPoseExtrapolator
+
+
+PoseExtrapolatorInterface <|-- PoseExtrapolator
+
+
+PoseGraph <|-- PoseGraph2D
+
+
+
+PoseGraphInterface <|-- testing.MockPoseGraph
+
+
+PoseGraphInterface <|-- PoseGraph
+
+
+PoseGraphTrimmer <|-- OverlappingSubmapsTrimmer2D
+
+
+PoseGraphTrimmer <|-- PureLocalizationTrimmer
+
+
+RangeDataInserterInterface <|-- ProbabilityGridRangeDataInserter2D
+
+
+RangeDataInserterInterface <|-- TSDFRangeDataInserter2D
+
+
+Submap <|-- Submap2D
+
+
+
+TrajectoryBuilderInterface <|-- CollatedTrajectoryBuilder
+
+
+TrajectoryBuilderInterface <|-- testing.MockTrajectoryBuilder
+
+
+Trimmable <|-- testing.FakeTrimmable
+
+
+' Trimmable <|-- PoseGraph2D::TrimmingHandle
+
+
+
+
+
+
+/' Aggregation relationships '/
+
+ActiveSubmaps2D o-- RangeDataInserterInterface
+
+
+ActiveSubmaps2D o-- Submap2D
+
+
+ActiveSubmaps2D *-- ValueConversionTables
+
+
+
+
+CollatedTrajectoryBuilder o-- TrajectoryBuilderInterface
+
+
+testing.FakeTrimmable *-- MapById
+
+
+testing.FakeTrimmable *-- SubmapId
+
+
+scan_matching.FastCorrelativeScanMatcher2D *-- MapLimits
+
+
+scan_matching.FastCorrelativeScanMatcher2D o-- scan_matching.PrecomputationGridStack2D
+
+
+Floor *-- Timespan
+
+
+Grid2D *-- MapLimits
+
+
+InternalSubmapData *-- NodeId
+
+
+InternalSubmapData *-- Submap
+
+
+InternalSubmapData *-- SubmapState
+
+
+scan_matching.InterpolatedTSDF2D *-- TSDF2D
+
+
+LocalSlamResult2D *-- LocalSlamResultData
+
+
+LocalSlamResult2D *-- Submap2D
+
+
+
+LocalTrajectoryBuilder2D *-- ActiveSubmaps2D
+
+
+LocalTrajectoryBuilder2D *-- scan_matching.CeresScanMatcher2D
+
+
+LocalTrajectoryBuilder2D *-- MotionFilter
+
+
+LocalTrajectoryBuilder2D o-- PoseExtrapolator
+
+
+LocalTrajectoryBuilder2D *-- RangeDataCollator
+
+
+LocalTrajectoryBuilder2D *-- scan_matching.RealTimeCorrelativeScanMatcher2D
+
+
+' LocalTrajectoryBuilder2D::InsertionResult *-- Submap2D
+
+
+MapBuilder o-- PoseGraph
+
+
+MapBuilder *-- TrajectoryBuilderInterface
+
+
+MapLimits *-- CellLimits
+
+
+optimization.OptimizationProblem2D *-- optimization.NodeSpec2D
+
+
+optimization.OptimizationProblem2D *-- optimization.SubmapSpec2D
+
+
+scan_matching.PointCloudAndHybridGridsPointers o-- HybridGrid
+
+
+scan_matching.PointCloudAndHybridGridsPointers o-- IntensityHybridGrid
+
+
+PoseExtrapolator "3" o-- ImuTracker
+
+
+PoseGraph2D *-- constraints.ConstraintBuilder2D
+
+
+PoseGraph2D *-- ValueConversionTables
+
+
+' PoseGraph2D::TrimmingHandle o-- PoseGraph2D
+
+
+PoseGraphData *-- InternalTrajectoryState
+
+
+PoseGraphData "2" *-- MapById
+
+
+PoseGraphData *-- TrajectoryConnectivityState
+
+
+' PoseGraphInterface::Constraint *-- NodeId
+
+
+' PoseGraphInterface::Constraint *-- SubmapId
+
+
+' PoseGraphInterface::SubmapData *-- Submap
+
+
+scan_matching.PrecomputationGrid2D *-- CellLimits
+
+
+scan_matching.PrecomputationGridStack2D *-- scan_matching.PrecomputationGrid2D
+
+
+ProbabilityGrid o-- ValueConversionTables
+
+
+Submap2D o-- Grid2D
+
+
+Submap2D o-- ValueConversionTables
+
+SubmapController *-- ValueConversionTables
+
+
+TSDF2D o-- TSDValueConverter
+
+
+TSDF2D o-- ValueConversionTables
+
+
+' TrajectoryBuilderInterface::InsertionResult *-- NodeId
+
+
+' TrajectoryBuilderInterface::InsertionResult *-- Submap
+
+
+TrajectoryConnectivityState *-- ConnectedComponents
+
+
+
+
+
+
+/' Nested objects '/
+
+optimization.CeresPose +-- optimization.CeresPose.Data
+
+
+constraints.ConstraintBuilder2D +-- constraints.ConstraintBuilder2D.SubmapScanMatcher
+
+' InternalTrajectoryState +-- InternalTrajectoryState.DeletionState
+
+
+' LocalTrajectoryBuilder2D +-- LocalTrajectoryBuilder2D.InsertionResult
+
+
+' LocalTrajectoryBuilder2D +-- LocalTrajectoryBuilder2D.MatchingResult
+
+' PoseExtrapolator +-- PoseExtrapolator.TimedPose
+
+
+' PoseExtrapolatorInterface +-- PoseExtrapolatorInterface.ExtrapolationResult
+
+
+' PoseGraph +-- PoseGraph.InitialTrajectoryPose
+
+
+' PoseGraph2D +-- PoseGraph2D.TrimmingHandle
+
+
+scan_matching.SearchParameters +-- scan_matching.SearchParameters.LinearBounds
+
+
+' TrajectoryBuilderInterface +-- TrajectoryBuilderInterface.InsertionResult
+
+
+' TrajectoryBuilderInterface +-- TrajectoryBuilderInterface.SensorId
+
+
+' TrajectoryNode +-- TrajectoryNode.Data
+
+
+' TrajectoryNodePose +-- TrajectoryNodePose.ConstantPoseData
+
+
+' WorkItem +-- WorkItem.Result
+
+
+
+
+@enduml

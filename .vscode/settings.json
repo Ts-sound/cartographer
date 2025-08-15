@@ -1,7 +1,7 @@
 {
     "todo-tree.general.rootFolder": "${workspaceFolder}/0.study/",
     "markdown-preview-enhanced.plantumlJarPath": "${workspaceFolder}/0.study/assets/plantuml-1.2025.4.jar",
-    "plantuml.jar": "${workspaceFolder}/0.study/assets/plantuml-1.2025.4.jar",
+    "plantuml.jar": "${workspaceFolder}/0.study/assets",
     "markdownlint.config": {
         "MD029": false,
         "MD033": false,
@@ -89,5 +89,7 @@
     "todo-tree.filtering.ignoreGitSubmodules": true,
     "commentTranslate.source": "Bing",
     "commentTranslate.maxTranslationLength": 100,
-    "commentTranslate.targetLanguage": "zh-CN"
+    "commentTranslate.targetLanguage": "zh-CN",
+    "plantuml.exportFormat": "svg",
+    "plantuml.exportConcurrency": 1
 }

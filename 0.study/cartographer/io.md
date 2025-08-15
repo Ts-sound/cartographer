@@ -21,6 +21,8 @@
 
 ## mapping_state_serialization.h
 
+> 地图数据序列化保存
+
 ```c++
 
 // The current serialization format version.
@@ -99,16 +101,6 @@ void WritePbStream(
    * `transform::ToProto`: 将 Eigen 矩阵转换为 Protobuf 格式（如 `fixed_frame_origin_in_map`）。
 
 ---
-
-### **使用场景**
-
-该序列化功能用于：
-
-1. **地图保存与加载**: 将构建的地图持久化存储。
-2. **回环检测与优化**: 存储中间状态以支持分布式处理。
-3. **算法调试**: 导出完整数据用于离线分析。
-
-通过此实现，Cartographer 可确保地图状态的高效、完整序列化，为 SLAM 系统的实际部署提供基础支持。
 
 ## PointsProcessor
 

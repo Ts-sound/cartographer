@@ -58,15 +58,6 @@ namespace cartographer {
 			-CheckHasKeyAndReference(const std::string& key) : void
 		}
 
-		enum LuaParameterDictionary::Quoted {
-			NO
-			YES
-		}
-
-		enum LuaParameterDictionary::ReferenceCount {
-			NO
-			YES
-		}
 	}
 }
 

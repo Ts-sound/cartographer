@@ -6,6 +6,8 @@
 
 ## BlockingQueue
 
+* 阻塞队列 （线程安全）
+
 ![BlockingQueue](./assets/puml/common/blocking_queue.puml)
 
 * 标准的阻塞队列实现
@@ -22,15 +24,16 @@
 
 ## FileResolver
 
-![FileResolver](./assets/puml/common/file_resolver.puml)
-
 * 参数文件（.lua）加载读取 , LuaParameterDictionary 提供 参数读取接口；
+
+![FileResolver](./assets/puml/common/file_resolver.puml)
 
 ## FixedRatioSampler
 
 * 固定比率采样器
   * 每调用一次 Pulse() 一个数据点（脉冲），动态决定是否采样(按ratio_比例)；
   * 采样 : Pulse()返回True;
+  * 比如 ratio_ 设置 0.5 ，Pulse() 大约每调用两次返回一次 true
 
 ----
 
@@ -38,6 +41,7 @@
 
 * 直方图类Histogram，用于将直方图数据转换为可读的字符串格式。
   * 计算基础统计值（数量、最小值、最大值、平均值），并将数据按指定桶数（buckets）分组后可视化。
+* 用于 debug 数据指标。
 
 ```bash
 Count: 100 Min: 1.0 Max: 10.0 Mean: 5.5
@@ -52,10 +56,11 @@ Count: 100 Min: 1.0 Max: 10.0 Mean: 5.5
 
 * 用于计算事件频率
 
-* Pulse(common::Time time) 添加事件时间
-* ComputeRate() 计算事件频率（如lidar数据的发送频率）
+* 事件发生时，通过 Pulse(common::Time time) 添加事件时间
+* ComputeRate() 计算事件频率（按传入时间点）（如lidar数据的发送频率）
   * Returns the pulse rate in Hz.
-* WallTime 采用 std::chrono::steady_clock；
+* ComputeWallTimeRateRatio() : 调用Pulse的时间频率/事件频率
+  * WallTime 采用 std::chrono::steady_clock；
 
 ----
 

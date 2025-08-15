@@ -54,9 +54,18 @@ struct LandmarkObservation {
   * 目的：压缩ponits以减少存储空间, 有精度损失;
   * 精度定义: constexpr float kPrecision = 0.001f;  // in meters.
 
-## data 关系类图
+## data 容器关系类图
 
 ![类图](./assets/puml/sensor/data.puml)
+
+* OrderedMultiQueue ：数据队列 （多队列，按queue_key区分）
+  * void AddQueue(const QueueKey& queue_key, Callback callback);
+    * 添加新队列，若queue_key队列已存在，则会报错退出；
+    * callback 为处理该队列数据回调；
+  * void Add(const QueueKey& queue_key, std::unique_ptr<Data> data);
+    * 添加数据到队列[queue_key],并调用内部Dispatch()处理；
+    * Dispatch() 会阻塞调用 callback；
+
 
 ```c++
 /// cartographer/sensor/internal/dispatchable.h
@@ -121,7 +130,9 @@ std::unique_ptr<Dispatchable<DataType>> MakeDispatchable(
 
 ## voxel_filter.h （体素滤波）
 
-**点云体素滤波（Voxel Filter）**，用于SLAM中的点云降采样。核心思想是将点云划分成规则的三维网格（体素），每个网格内仅保留一个点，以此降低数据量同时保留几何结构特征。
+**点云体素滤波（Voxel Filter）**，用于SLAM中的点云**降采样**。
+​​体素网格划分​​：将点云空间划分为均匀的三维网格（体素），每个体素视为一个微小的立方体单元。
+​​降采样策略​​：对每个体素内的点进行聚合，保留一个代表性点（如质心或随机点），从而减少数据量。
 
 ---
 

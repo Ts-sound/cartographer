@@ -3,7 +3,6 @@
 [toc]
 
 metrics: 指标,在通俗意义上是数值测量。
-该模块提供空处理的实现类。
 
 * 该测量功能通过 cartographer/cloud/BUILD.bazel 宏定义  **defines = ["USE_PROMETHEUS=1"]** 启用；
 * 启用后，map_builder_server 运行前会实例化 prometheus::FamilyFactory，并注册相关函数RegisterAllMetrics，提供 0.0.0.0:9100 访问接口；
@@ -40,7 +39,7 @@ void RegisterAllMetrics(FamilyFactory* registry) {
 
 @import "./assets/puml/metrics/metrics.svg"{width=100%}
 <!-- ![](./assets/puml/metrics/metrics.svg){width=90%} -->
-* 简化类图 （Famaly<Counter>）
+* 简化类图 （Famaly< Counter >）
 @import "./assets/puml/metrics/metrics_concise.puml"
 
 * 设计采用 抽象工厂模式；
