@@ -221,5 +221,3 @@ ToProto(Eigen::T)              // Eigen::T → proto::T
 > R = \mathbf{I} + \sin\theta \cdot [\mathbf{a}]_\times + (1-\cos\theta) \cdot [\mathbf{a}]_\times^2
 > \]  
 > 其中 \([\mathbf{a}]_\times\) 是轴向量的叉积矩阵。
-
-如有具体场景需求（如代码实现或不同表示转换），请进一步说明！ 🙂
