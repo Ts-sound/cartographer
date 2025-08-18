@@ -66,7 +66,6 @@ struct LandmarkObservation {
     * 添加数据到队列[queue_key],并调用内部Dispatch()处理；
     * Dispatch() 会阻塞调用 callback；
 
-
 ```c++
 /// cartographer/sensor/internal/dispatchable.h
 /// 用unique_ptr 创建一个可被分派的数据对象(ImuData,PointcloudData,...)
@@ -202,3 +201,37 @@ std::unique_ptr<Dispatchable<DataType>> MakeDispatchable(
 2. **保持几何特征**：体素化后关键结构（如墙角、平面）仍可保留
 3. **抗噪声**：蓄水池采样抑制局部噪声点的干扰
 4. **可配置性**：通过Lua调节参数适应不同场景（室内/室外）
+
+## 时钟同步 NTP/PTP
+
+网络时间协议（NTP）与精确时间协议（PTP）
+
+目前3D雷达大部分提供时钟同步方法，可以保证数据时间的准确性，对建图和定位精度有较大影响；
+linux 上提供 NTP/PTP 相关服务，PTP需要特定网卡硬件支持；
+
+
+1. 基本定义
+
+* NTP（Network Time Protocol）  
+
+  * 用途：为互联网和局域网提供时间同步，精度通常在毫秒级（1-10ms）。  
+
+  * 层级结构：采用分层时钟源（Stratum），从 Stratum 0（原子钟/GPS）到 Stratum 15。  
+
+* PTP（Precision Time Protocol, IEEE 1588）  
+
+  * 用途：实现亚微秒级（100纳秒-1微秒）高精度同步，需硬件支持。  
+
+  * 层级结构：主时钟（Grandmaster）→ 边界时钟（Boundary Clock）→ 从属时钟（Slave Clock）。  
+
+2. 核心差异
+
+| **特性**       | **NTP**                            | **PTP**                            |  
+|----------------|-----------------------------------|-----------------------------------|  
+| **精度**       | 毫秒级（1-50ms）                  | 亚微秒级（<1µs）                  |  
+| **同步机制**   | 软件时间戳 + 算法校准             | 硬件时间戳（需网卡/交换机支持）     |  
+| **网络影响**   | 抗网络波动能力强                  | 对延迟和抖动敏感                  |  
+| **部署成本**   | 低（纯软件）                      | 高（需PTP兼容硬件）               |  
+| **典型协议**   | UDP/123端口                       | IEEE 1588v2（以太网层）           |  
+
+---
