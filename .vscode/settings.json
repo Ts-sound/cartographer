@@ -88,7 +88,7 @@
     "todo-tree.general.statusBar": "total",
     "todo-tree.filtering.ignoreGitSubmodules": true,
     "commentTranslate.source": "Bing",
-    "commentTranslate.maxTranslationLength": 100,
+    "commentTranslate.maxTranslationLength": 200,
     "commentTranslate.targetLanguage": "zh-CN",
     "plantuml.exportFormat": "svg",
     "plantuml.exportConcurrency": 1

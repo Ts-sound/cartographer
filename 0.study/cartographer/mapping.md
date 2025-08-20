@@ -16,6 +16,11 @@
 
 ```
 
+## eigen_quaterniond_from_two_vectors.h
+
+* 封装函数 Eigen::Quaterniond::FromTwoVectors()
+* 减少 编译所需时间和 编译内存占用；
+
 ## probability_values.h
 
 * 概率值相关定义
@@ -24,6 +29,68 @@
   * **CorrespondenceCost**（匹配代价）：**（1 - probability）** , 高概率表示事件发生的可能性高，而代价则应该低。优化过程中，我们更倾向于使用代价（cost）的概念，因为优化通常是最小化代价。
 
 > 通过查表法，用于将浮点数映射到紧凑的 uint16整数表示（范围 [1, 32767]），主要用于优化存储和处理效率；
+
+## MotionFilter
+
+* 过滤odometry数据，解决静止状态下odometry数据占用大量内存问题；
+* InsertIntoSubmap 过程过滤数据；
+
+> 参数
+
+```lua
+
+-- 过滤 5s内 平移小于 0.2 m , 旋转小于 1° 的 last_pose_ -> pose 变化;
+-- 若 时间到 或 移动量（平移或旋转）大于 设定阈值，则更新 last_pose_;
+  motion_filter = {
+    max_time_seconds = 5.,
+    max_distance_meters = 0.2,
+    max_angle_radians = math.rad(1.),
+  },
+  
+```
+
+![Alt text](./assets/puml/mapping/MotionFilter.png)
+
+```c++
+/// cartographer/mapping/internal/global_trajectory_builder.cc
+  void AddSensorData(const std::string& sensor_id,
+                     const sensor::OdometryData& odometry_data) override {
+    CHECK(odometry_data.pose.IsValid()) << odometry_data.pose;
+    if (local_trajectory_builder_) {
+      local_trajectory_builder_->AddOdometryData(odometry_data);
+    }
+    // TODO(MichaelGrupp): Instead of having an optional filter on this level,
+    // odometry could be marginalized between nodes in the pose graph.
+    // Related issue: cartographer-project/cartographer/#1768
+    if (pose_graph_odometry_motion_filter_.has_value() &&
+        pose_graph_odometry_motion_filter_.value().IsSimilar(
+            odometry_data.time, odometry_data.pose)) {
+      return;
+    }
+    pose_graph_->AddOdometryData(trajectory_id_, odometry_data);
+  }
+```
+
+```text
+关联问题
+https://github.com/cartographer-project/cartographer/issues/1768
+
+Context: When a robot is not moving much, there are few trajectory nodes and odometry data can consume a lot of memory. Right now OptimizationProblem2D and OptimizationProblem3D store a lot of unneeded odometry data.
+
+Idea: The optimization only needs odometry data directly before and after each trajectory node. This means, that all odometry data before the last node of a trajectory can be replaced by the interpolated odometry as used in the optimization problem.
+```
+
+```c++
+/// cartographer/mapping/internal/2d/local_trajectory_builder_2d.cc
+LocalTrajectoryBuilder2D::InsertIntoSubmap(
+    const common::Time time, const sensor::RangeData& range_data_in_local,
+    const sensor::PointCloud& filtered_gravity_aligned_point_cloud,
+    const transform::Rigid3d& pose_estimate,
+    const Eigen::Quaterniond& gravity_alignment) {
+  if (motion_filter_.IsSimilar(time, pose_estimate)) {
+    return nullptr;
+  }
+```
 
 ##
 
@@ -94,8 +161,8 @@ sequenceDiagram
                          transform::Rigid3d /* local pose estimate */,
                          sensor::RangeData /* in local frame */,
                          std::unique_ptr<const InsertionResult>)>;
-
 ```
+
 
 ```mermaid
 sequenceDiagram
