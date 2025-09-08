@@ -61,9 +61,10 @@ Car ..> GPS :  Dependency (weak usage)
 
 ' 继承 son --|> father
 ' 接口实现 driver ..|> driverinterface
+' Dependency  Car --> GPS strong,week:..>
+
 ' Composition Car *-- Engine , strong lifecycle
 ' Aggregation Car o-- Wheel  , week
-' Dependency  Car --> GPS strong,week:..>
 
 
 @enduml 
