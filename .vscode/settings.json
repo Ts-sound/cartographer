@@ -91,5 +91,8 @@
     "commentTranslate.maxTranslationLength": 200,
     "commentTranslate.targetLanguage": "zh-CN",
     "plantuml.exportFormat": "svg",
-    "plantuml.exportConcurrency": 1
+    "plantuml.exportConcurrency": 1,
+    "commentTranslate.hover.string": true,
+    "commentTranslate.hover.variable": true,
+    "commentTranslate.hover.concise": true
 }
