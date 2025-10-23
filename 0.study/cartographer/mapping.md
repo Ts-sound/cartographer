@@ -234,3 +234,14 @@ GlobalTrajectoryBuilder2D: 仅是将传感器数据转发给 LocalTrajectoryBuil
 
 
 ```
+
+* MapBuilderInterface 是总的对外接口，MapBuilder 是总的资源接口管理类，线程池等实例都在里面；
+* 
+
+# TODO
+
+* 添加 RangeData 流程序列图
+* 添加 ImuData 流程序列图
+* 添加 OdometryData 流程序列图
+* 线程池处理的任务 
+![Alt text](image.png)
