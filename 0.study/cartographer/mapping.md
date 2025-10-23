@@ -92,7 +92,7 @@ LocalTrajectoryBuilder2D::InsertIntoSubmap(
   }
 ```
 
-##
+## mapping_2d
 
 ![alt text](./assets/puml/mapping/mapping_2d.puml)
 
@@ -163,7 +163,6 @@ sequenceDiagram
                          std::unique_ptr<const InsertionResult>)>;
 ```
 
-
 ```mermaid
 sequenceDiagram
 
@@ -201,3 +200,37 @@ end -->
 CollatedTrajectoryBuilder: 仅是使用 CollatorInterface 将数据分发给实际的 GlobalTrajectoryBuilder(2D/3D) , 统计不同id数据频率(RateTimer);
 
 GlobalTrajectoryBuilder2D: 仅是将传感器数据转发给 LocalTrajectoryBuilder2D 和 PoseGraph2D
+
+## 使用流程
+
+```c++
+
+  // 1. 创建 map_builder
+  map_builder_ =
+      absl::make_unique<cartographer::mapping::MapBuilder>(map_builder_options);
+
+  // 2. 创建 trajectory
+  
+    std::set<SensorId> sensor_ids;
+    sensor_ids.insert(SensorId{SensorType::RANGE, "range"});
+    sensor_ids.insert(SensorId{SensorType::IMU, "imu"});
+    // sensor_ids.insert(SensorId{SensorType::ODOMETRY, "odom"});
+    
+  
+  trajectory_id_ = map_builder_->AddTrajectoryBuilder(sensor_ids,trajectory_builder_options,LocalSlamResultCallback);
+  trajectory_builder_ = map_builder_->GetTrajectoryBuilder(trajectory_id_);
+
+
+  // 3. 向 trajectory 中添加数据
+  trajectory_builder_->AddSensorData("range", ToCartoPointCloud(data));
+  // ...
+
+
+  // 4. 结束 trajectory
+   map_builder_->FinishTrajectory(trajectory_id_);
+
+  // 5. 全局优化
+   map_builder_->pose_graph()->RunFinalOptimization();
+
+
+```
